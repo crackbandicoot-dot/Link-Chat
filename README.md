@@ -1,2 +1,2 @@
 # Link-Chat
-An app to chat and share files betwem devices.
+An app to chat and share files betwen devices.
