@@ -1,0 +1,1 @@
+# Descubrimiento automático de dispositivos
