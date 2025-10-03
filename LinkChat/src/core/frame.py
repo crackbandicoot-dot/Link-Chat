@@ -6,7 +6,7 @@ from utils.helpers import format_mac_address, parse_mac_address
 
 class LinkChatFrame:
     """
-    Clase que maneja tanto la trama Ethernet 
+    Clase que maneja la trama Ethernet
     
     Estructura completa:
     [Dest MAC][Src MAC][EtherType][Version][MsgType][MsgID][DataLength][Checksum][Data]
