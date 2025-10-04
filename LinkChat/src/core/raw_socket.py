@@ -1,6 +1,7 @@
 import socket
 import struct
-from typing import Optional
+import threading
+from typing import Dict, Optional,Callable,str
 
 # Assuming the provided LinkChatFrame class is in a file named 'frame.py'
 from frame import LinkChatFrame 
@@ -16,7 +17,8 @@ class raw_socket_wrapper:
     This class handles the creation, binding, and usage of a raw socket
     at the link layer (Ethernet). It requires root privileges to run.
     """
-
+    callbacks: Dict[str, Callable] = {}
+    
     def __init__(self, interface_name: str):
         """
         Initializes and binds the raw socket to a specific network interface.
@@ -34,8 +36,8 @@ class raw_socket_wrapper:
             # Create a raw socket that can read all incoming packets (ETH_P_ALL)
             # AF_PACKET allows communication at the device driver level (OSI Layer 2)
             # SOCK_RAW gives us the raw packets including the link-layer header
-            # socket.htons(3) corresponds to ETH_P_ALL, capturing all protocols
-            self.sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(3))
+            # socket.nhtons(ETHERTYPE_LINKCHAT) its for using our protocol
+            self.sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(ETHERTYPE_LINKCHAT))
             
             # Bind the socket to the specified network interface
             self.sock.bind((self.interface_name, 0))
@@ -75,7 +77,7 @@ class raw_socket_wrapper:
             print(f"Error sending frame: {e}")
             return False
 
-    def receive_frame(self) -> None:
+    def receive_frames(self) -> None:
         """
         Receives and parses a LinkChatFrames from the raw socket.
         
@@ -126,7 +128,7 @@ class raw_socket_wrapper:
                 print(f"An unexpected error occurred during frame reception: {e}")
                 return None
                 
-    def close(self):
+    def close_socket(self):
         """
         Closes the raw socket.
         """
@@ -135,3 +137,30 @@ class raw_socket_wrapper:
             self.sock.close()
             self.sock = None
     
+    def start_reciving(self)->None:
+        """
+        Starts a thread to receive frames in the background.
+        
+        Returns:
+            None
+        
+        """
+        self.is_running = True
+        self.receive_thread = threading.Thread(target=self.receive_frames,deamon=True)
+        self.receive_thread.start()
+
+    def stop_reciving(self)->None:
+        """
+        Stops the receiving thread.
+        """
+        self.receive_thread.join()
+    """
+    Registers a callback.
+    """
+    def register_callback(self,name:str,callback:Callable)->None:
+        self.callbacks[name] = callback
+    """
+    Unregisters a callback.
+    """
+    def unregister_callback(self,name:str)->None:
+        self.callbacks.pop(name,None)
