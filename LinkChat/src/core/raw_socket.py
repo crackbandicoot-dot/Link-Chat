@@ -166,7 +166,7 @@ class raw_socket_wrapper(Subject):
 
     def notify_observers(self) -> None:
         for observer in self.observers:
-            observer.update()
+            observer.update(self)
 
     def add_observer(self, observer: Observer) -> None:
         self.observers.add(observer)
