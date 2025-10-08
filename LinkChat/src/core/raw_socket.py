@@ -12,14 +12,13 @@ from ..utils.constants import ETHERTYPE_LINKCHAT
 BUFFER_SIZE = 65536  # Max possible size for an IP packet, good for capturing full frames
 
 
-class raw_socket_wrapper(Subject):
+class raw_socket_wrapper(Subject[LinkChatFrame]):
     """
     A wrapper class for a raw socket to send and receive LinkChatFrame objects.
     
     This class handles the creation, binding, and usage of a raw socket
     at the link layer (Ethernet). It requires root privileges to run.
     """
-    observers: set[Observer] = {}
 
     def __init__(self, interface_name: str):
         """
@@ -34,6 +33,7 @@ class raw_socket_wrapper(Subject):
         """
         self.interface_name = interface_name
         self.sock = None
+        self.observers = set()
         try:
             # Create a raw socket that can read all incoming packets (ETH_P_ALL)
             # AF_PACKET allows communication at the device driver level (OSI Layer 2)
@@ -119,7 +119,7 @@ class raw_socket_wrapper(Subject):
 
                 if frame:
                     #Notify observers
-                    self.notify_observers()
+                    self.notify(frame)
                     # If frame is None, it means the packet was for our EtherType
                 # but failed validation (e.g., bad checksum). Loop to get the next one.
 
@@ -155,18 +155,21 @@ class raw_socket_wrapper(Subject):
         """
         Stops the receiving thread.
         """
+        self.is_running=False
         self.receive_thread.join()
 
     """
     Registers a callback.
     """
+    def get_self_mac(self):
+        pass
 
-    def remove_observer(self, observer: Observer) -> None:
+    def attach(self, observer: Observer[LinkChatFrame]) -> None:
         self.observers.remove(observer)
 
-    def notify_observers(self) -> None:
+    def notify(self,message :LinkChatFrame) -> None:
         for observer in self.observers:
-            observer.update(self)
+            observer.update(self,message)
 
-    def add_observer(self, observer: Observer) -> None:
+    def detach(self, observer: Observer[LinkChatFrame]) -> None:
         self.observers.add(observer)

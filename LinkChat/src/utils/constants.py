@@ -51,3 +51,5 @@ LOG_LEVEL_ERROR = 3
 MAX_MESSAGE_SIZE = 4096    # Tamaño máximo de mensaje de texto
 MAX_FILENAME_SIZE = 255    # Tamaño máximo de nombre de archivo
 MAX_DEVICES = 100          # Máximo número de dispositivos en la red
+
+DOWNLOADS_PATH = '/home/Downloads'
