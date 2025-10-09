@@ -1,7 +1,6 @@
 import os
 import platform
 import struct
-import hashlib
 import time
 from typing import Optional, List, Dict, Any
 import socket
