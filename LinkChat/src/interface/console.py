@@ -2,29 +2,37 @@ import os
 import sys
 import threading
 import time
+import asyncio
 from typing import Optional, List, Dict
 from utils.helpers import log_message, get_network_interfaces, format_file_size
 from utils.constants import *
-from LinkChat.src.core.raw_socket_manager import raw_socket_manager
+from core.raw_socket_manager import raw_socket_manager
 from networking.discovery import DeviceDiscovery
-from networking.messaging import MessageManager
-from networking.file_transfer import FileTransferManager
+from networking.messaging import MessageService
+from networking.file_transfer import FileTransferService
+from observer.observer import Observer
+from DTOS.Message import Message
+from DTOS.File import File
 
 
-class ConsoleInterface:
+class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
     """
     Interfaz de consola principal para Link-Chat
+    Implementa el patrón Observer para recibir notificaciones de dispositivos, mensajes y archivos
     """
     
     def __init__(self):
         """Inicializa la interfaz de consola"""
         self.socket_manager = None
         self.device_discovery = None
-        self.message_manager = None
-        self.file_manager = None
+        self.message_service = None
+        self.file_service = None
         self.is_running = False
         self.input_thread = None
         self.discovered_devices = {}
+        self.received_messages = []
+        self.received_files = []
+        self.display_lock = threading.Lock()  # Para thread-safe console updates
         
     def start(self) -> None:
         """Inicia la interfaz de consola"""
@@ -114,28 +122,28 @@ class ConsoleInterface:
             
             # Inicializar socket manager
             self.socket_manager = raw_socket_manager(interface)
-            if not self.socket_manager.start():
+            if not hasattr(self.socket_manager, 'start') or not self.socket_manager.start():
+                print("❌ Error iniciando socket manager")
                 return False
             
             # Inicializar descubrimiento de dispositivos
             self.device_discovery = DeviceDiscovery(self.socket_manager)
-            self.device_discovery.start()
+            self.device_discovery.attach(self)  # Console observa cambios de dispositivos
             
-           
-            # Inicializar gestor de mensajes
-            self.message_manager = MessageManager(self.socket_manager)
-            self.message_manager.start()
+            # Inicializar servicio de mensajes
+            self.message_service = MessageService()
+            self.socket_manager.attach(self.message_service)  # MessageService observa tramas
+            self.message_service.attach(self)  # Console observa mensajes recibidos
             
-            
-            # Inicializar gestor de archivos
-            self.file_manager = FileTransferManager(self.socket_manager)
-            self.file_manager.start()
-            
+            # Inicializar servicio de archivos
+            self.file_service = FileTransferService()
+            self.socket_manager.attach(self.file_service)  # FileService observa tramas
+            self.file_service.attach(self)  # Console observa archivos recibidos
 
             self.is_running = True
             
             print("✅ Componentes inicializados correctamente")
-            print(f"📡 MAC local: {self.socket_manager.local_mac}")
+            print(f"📡 MAC local: {getattr(self.socket_manager, 'local_mac', 'N/A')}")
             print()
             
             # Iniciar descubrimiento automático
@@ -144,8 +152,59 @@ class ConsoleInterface:
             return True
             
         except Exception as e:
-            log_message("ERROR", f"Error inicializando componentes: {e}")
-            return False
+            log_message("INFO", "Hilo de heartbeat detenido")
+    
+    # Observer pattern implementation
+    def update(self, data) -> None:
+        """
+        Implementación del patrón Observer para recibir notificaciones
+        de dispositivos, mensajes y archivos
+        
+        Args:
+            data: Puede ser Dict (dispositivos), Message (mensajes) o File (archivos)
+        """
+        with self.display_lock:
+            if isinstance(data, dict) and 'mac' in data:
+                # Notificación de dispositivo
+                self._handle_device_update(data)
+            elif isinstance(data, Message):
+                # Notificación de mensaje
+                self._handle_message_update(data)
+            elif isinstance(data, File):
+                # Notificación de archivo
+                self._handle_file_update(data)
+    
+    def _handle_device_update(self, device_data: Dict) -> None:
+        """Maneja actualizaciones de dispositivos"""
+        mac = device_data['mac']
+        info = device_data['info']
+        action = device_data['action']
+        
+        if action == 'discovered':
+            self.discovered_devices[mac] = info
+            self._show_notification(f"🔍 Nuevo dispositivo descubierto: {mac}")
+        elif action == 'updated':
+            self.discovered_devices[mac] = info
+        elif action == 'disconnected':
+            if mac in self.discovered_devices:
+                self.discovered_devices[mac]['active'] = False
+            self._show_notification(f"📴 Dispositivo desconectado: {mac}")
+    
+    def _handle_message_update(self, message: Message) -> None:
+        """Maneja mensajes recibidos"""
+        self.received_messages.append(message)
+        self._show_notification(f"💬 Mensaje de {message.sender_mac}: {message.text[:50]}...")
+    
+    def _handle_file_update(self, file: File) -> None:
+        """Maneja archivos recibidos"""
+        self.received_files.append(file)
+        self._show_notification(f"📁 Archivo recibido: {file.name}")
+    
+    def _show_notification(self, message: str) -> None:
+        """Muestra notificaciones en tiempo real"""
+        # Solo mostrar si no estamos en un menú activo
+        print(f"\n{message}")
+        print("Presione Enter para continuar...")
     
     def main_menu(self) -> None:
         """Muestra y maneja el menú principal"""
@@ -335,8 +394,9 @@ class ConsoleInterface:
                 message = input("Ingrese el mensaje: ")
                 
                 if message.strip():
-                    # Enviar mensaje usando MessageManager
-                    success = self.message_manager.send_message(target_mac, message)
+                    # Enviar mensaje usando MessageService
+                    import asyncio
+                    success = asyncio.run(self.message_service.send_message(target_mac, message))
                     if success:
                         print("✅ Mensaje enviado correctamente")
                     else:
@@ -358,11 +418,14 @@ class ConsoleInterface:
         message = input("Ingrese el mensaje broadcast: ")
         
         if message.strip():
-            success = self.message_manager.send_broadcast_message(message)
-            if success:
-                print("✅ Mensaje broadcast enviado")
-            else:
-                print("❌ Error enviando mensaje broadcast")
+            import asyncio
+            # Enviar a todos los dispositivos descubiertos
+            success_count = 0
+            for mac in self.discovered_devices.keys():
+                if asyncio.run(self.message_service.send_message(mac, message)):
+                    success_count += 1
+            
+            print(f"✅ Mensaje enviado a {success_count} dispositivos")
         else:
             print("❌ Mensaje vacío")
         
@@ -408,12 +471,15 @@ class ConsoleInterface:
                 target_mac = devices[choice]
                 
                 print(f"\n📤 Iniciando transferencia a {target_mac}...")
-                success = self.file_manager.send_file(target_mac, filepath)
-                
-                if success:
-                    print("✅ Transferencia iniciada")
-                else:
-                    print("❌ Error iniciando transferencia")
+                try:
+                    success = asyncio.run(self.file_transfer_service.send_file(target_mac, filepath))
+                    
+                    if success:
+                        print("✅ Transferencia iniciada")
+                    else:
+                        print("❌ Error iniciando transferencia")
+                except Exception as e:
+                    print(f"❌ Error en transferencia: {e}")
             else:
                 print("❌ Selección inválida")
                 
@@ -426,70 +492,64 @@ class ConsoleInterface:
     
     def show_received_messages(self) -> None:
         """Muestra los mensajes recibidos"""
-        print("📥 Mensajes recibidos - En desarrollo...")
-        time.sleep(2)
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print("╔" + "="*50 + "╗")
+        print("║           MENSAJES RECIBIDOS                  ║")
+        print("╚" + "="*50 + "╝")
+        print()
+        
+        if not self.received_messages:
+            print("📭 No hay mensajes recibidos aún...")
+        else:
+            print(f"📬 {len(self.received_messages)} mensajes recibidos:")
+            print()
+            
+            for i, message in enumerate(self.received_messages[-10:], 1):  # Mostrar últimos 10
+                print(f"  {i}. De: {message.sender_mac}")
+                print(f"     📝 {message.text}")
+                print()
+        
+        input("Presione Enter para continuar...")
     
     def show_transfer_progress(self) -> None:
         """Muestra el progreso de transferencias"""
-        print("📊 Progreso de transferencias - En desarrollo...")
-        time.sleep(2)
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print("╔" + "="*50 + "╗")
+        print("║        ARCHIVOS RECIBIDOS                     ║")
+        print("╚" + "="*50 + "╝")
+        print()
+        
+        if not self.received_files:
+            print("📭 No hay archivos recibidos aún...")
+        else:
+            print(f"📬 {len(self.received_files)} archivos recibidos:")
+            print()
+            
+            for i, file in enumerate(self.received_files, 1):
+                print(f"  {i}. 📁 {file.name}")
+            print()
+        
+        input("Presione Enter para continuar...")
     
     def show_transfer_history(self) -> None:
         """Muestra el historial de transferencias"""
-        print("📋 Historial de transferencias - En desarrollo...")
-        time.sleep(2)
+        self.show_transfer_progress()  # Por ahora, mostrar lo mismo
     
-    def _on_device_discovered(self, mac: str, info: Dict) -> None:
-        """
-        Callback llamado cuando se descubre un nuevo dispositivo
-        
-        Args:
-            mac: Dirección MAC del dispositivo
-            info: Información del dispositivo
-        """
-        self.discovered_devices[mac] = info
-        # No imprimir aquí para evitar interferir con la interfaz
-    
-    def _on_message_received(self, sender_mac: str, message: str) -> None:
-        """
-        Callback llamado cuando se recibe un mensaje
-        
-        Args:
-            sender_mac: MAC del remitente
-            message: Contenido del mensaje
-        """
-        # En una implementación completa, esto se mostraría en una ventana separada
-        # o se guardaría para mostrar en el menú de mensajes
-        pass
-    
-    def _on_file_progress(self, transfer_id: str, progress: Dict) -> None:
-        """
-        Callback llamado para reportar progreso de transferencia
-        
-        Args:
-            transfer_id: ID de la transferencia
-            progress: Información de progreso
-        """
-        # Actualizar progreso de transferencias
-        pass
-    
+
     def shutdown(self) -> None:
         """Cierra la aplicación limpiamente"""
-        print("\n🛑 Cerrando Link-Chat...")
+        print("\n� Cerrando Link-Chat...")
         
         self.is_running = False
         
-        # Detener componentes
+        # Detener servicios
         if self.device_discovery:
             self.device_discovery.stop()
         
-        if self.message_manager:
-            self.message_manager.stop()
-        
-        if self.file_manager:
-            self.file_manager.stop()
-        
+        # Cerrar socket manager
         if self.socket_manager:
-            self.socket_manager.stop()
+            if hasattr(self.socket_manager, 'close_socket'):
+                self.socket_manager.close_socket()
         
         print("✅ Link-Chat cerrado correctamente")
+        sys.exit(0)

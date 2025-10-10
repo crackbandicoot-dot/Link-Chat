@@ -3,7 +3,7 @@ import struct
 import threading
 
 
-from frame import LinkChatFrame
+from .frame import LinkChatFrame
 from ..observer.subject import Subject
 from ..observer.observer import Observer
 from ..utils.constants import ETHERTYPE_LINKCHAT

@@ -9,7 +9,7 @@ from  ..core.frame import LinkChatFrame
 from ..DTOS.File import File
 from ..utils.constants import MAX_CHUNK_SIZE,MSG_TYPE_FILE_START,MSG_TYPE_FILE_CHUNK,MSG_TYPE_FILE_END,MSG_TYPE_MESSAGE_ACK,DOWNLOADS_PATH
 from  ..utils.binary_serializer import BinarySerializer
-from file_info import FileInfo
+from .file_info import FileInfo
 
 
 

@@ -1,6 +1,6 @@
 # Sistema de mensajería
 import asyncio
-from LinkChat.src.observer.observer import Observer
+from ..observer.observer import Observer
 
 from ..core.frame import LinkChatFrame
 from ..core.raw_socket_manager import raw_socket_manager

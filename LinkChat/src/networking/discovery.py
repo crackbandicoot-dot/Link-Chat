@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Set
 from utils.constants import *
 from utils.helpers import log_message, create_message_id, get_timestamp
 from core.frame import LinkChatFrame
-from LinkChat.src.core.raw_socket_manager import raw_socket_manager
+from ..core.raw_socket_manager import raw_socket_manager
 from ..observer.subject import Subject
 from ..observer.observer import Observer
 

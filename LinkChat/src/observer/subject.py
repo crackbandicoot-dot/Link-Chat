@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
+from .observer import Observer
 
 T = TypeVar('T')
 

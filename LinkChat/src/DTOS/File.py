@@ -1,11 +1,11 @@
 class File:
-    def __init__(self,name:str):
-        pass
+    def __init__(self, name: str):
+        self._name = name
 
     @property
     def name(self):
-        return self.name
+        return self._name
 
-    @property.setter
-    def name(self,value):
-        self.name = value
+    @name.setter
+    def name(self, value):
+        self._name = value
