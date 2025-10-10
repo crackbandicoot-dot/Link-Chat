@@ -1,19 +1,23 @@
 import threading
 import time
 import json
-from typing import Dict, List, Callable, Optional
+from typing import Dict, List, Optional, Set
 from utils.constants import *
 from utils.helpers import log_message, create_message_id, get_timestamp
 from core.frame import LinkChatFrame
-from core.raw_socket import RawSocketManager
+from LinkChat.src.core.raw_socket_manager import raw_socket_manager
+from ..observer.subject import Subject
+from ..observer.observer import Observer
 
 
-class DeviceDiscovery:
+class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
     """
     Maneja el descubrimiento automático de dispositivos Link-Chat en la red
+    Implementa el patrón Observer para notificar cambios en dispositivos descubiertos
+    y recibir tramas del raw_socket_manager
     """
     
-    def __init__(self, socket_manager: RawSocketManager):
+    def __init__(self, socket_manager: raw_socket_manager):
         """
         Inicializa el sistema de descubrimiento
         
@@ -23,16 +27,16 @@ class DeviceDiscovery:
         
         self.socket_manager = socket_manager
         self.discovered_devices = {}
-        self.callbacks = {}
         self.discovery_thread = None
         self.heartbeat_thread = None
         self.is_running = False
         self.local_mac = socket_manager.get_local_mac()
+        self.observers: Set[Observer[Dict]] = set()
         
-        # Registrar callback en el socket manager
-        socket_manager.register_callback("discovery", self._handle_frame)
-    
-    
+        # Registrarse como observador del socket manager
+        socket_manager.attach(self)
+        
+        
     def start_discovery(self) -> None:
         """Inicia el proceso de descubrimiento automático"""
          
@@ -58,8 +62,8 @@ class DeviceDiscovery:
         if self.heartbeat_thread and self.heartbeat_thread.is_alive():
             self.heartbeat_thread.join(timeout=2)
         
-        # Desregistrar callback
-        self.socket_manager.unregister_callback("discovery")
+        # Desregistrarse del socket manager
+        self.socket_manager.detach(self)
         
         log_message("INFO", "Sistema de descubrimiento detenido")
         
@@ -187,45 +191,40 @@ class DeviceDiscovery:
         
         for mac, info in self.discovered_devices.items():
             last_seen = info.get('last_seen', 0)
+            was_active = info.get('active', True)
+            
             if current_time - last_seen < DEVICE_TIMEOUT * 1000:  # Convertir a ms
                 info['active'] = True
                 active_devices[mac] = info
             elif mac in self.discovered_devices:
                 info['active'] = False
                 active_devices[mac] = info
+                
+                # Notificar si el dispositivo se volvió inactivo
+                if was_active:
+                    device_info = {
+                        'mac': mac,
+                        'info': info,
+                        'action': 'disconnected'
+                    }
+                    self.notify(device_info)
         
         return active_devices
     
-    def register_callback(self, name: str, callback: Callable) -> None:
-        """
-        Registra un callback para notificaciones de descubrimiento
-        
-        Args:
-            name: Nombre del callback
-            callback: Función a llamar cuando se descubra un dispositivo
-        """
-        self.callbacks[name] = callback
     
-    def unregister_callback(self, name: str) -> None:
-        """
-        Desregistra un callback
-        
-        Args:
-            name: Nombre del callback a eliminar
-        """
-        if name in self.callbacks:
-            del self.callbacks[name]
     
-    def _handle_frame(self, frame: LinkChatFrame, addr) -> None:
+    # Observer[LinkChatFrame] implementation
+    def update(self, frame: LinkChatFrame) -> None:
+        self._handle_frame(frame)
+
+    def _handle_frame(self, frame: LinkChatFrame) -> None:
         """
         Maneja tramas recibidas relacionadas con descubrimiento
         
         Args:
-            frame: Trama Ethernet recibida
-            addr: Dirección del remitente
+            frame: Trama Link-Chat recibida
         """
         try:
-            # La trama ya está parseada como LinkChatFrame
             # Procesar según el tipo de mensaje
             if frame.msg_type == MSG_TYPE_DISCOVERY:
                 self._handle_discovery_request(frame.src_mac, frame)
@@ -322,12 +321,13 @@ class DeviceDiscovery:
         if is_new:
             log_message("INFO", f"Nuevo dispositivo descubierto: {mac}")
         
-        # Notificar a callbacks
-        for callback in self.callbacks.values():
-            try:
-                callback(mac, info)
-            except Exception as e:
-                log_message("ERROR", f"Error en callback de descubrimiento: {e}")
+        # Notificar a observadores usando patrón Observer
+        device_info = {
+            'mac': mac,
+            'info': info,
+            'action': 'discovered' if is_new else 'updated'
+        }
+        self.notify(device_info)
     
     def _discovery_loop(self) -> None:
         """Hilo principal para envío periódico de descubrimiento"""
@@ -356,3 +356,17 @@ class DeviceDiscovery:
                 time.sleep(5)
         
         log_message("INFO", "Hilo de heartbeat detenido")
+    
+    # Observer pattern implementation
+    def attach(self, observer: Observer[Dict]) -> None:
+        self.observers.add(observer)
+        log_message("DEBUG", f"Observer registrado. Total observers: {len(self.observers)}")
+    
+    def detach(self, observer: Observer[Dict]) -> None:
+        self.observers.discard(observer)
+        log_message("DEBUG", f"Observer removido. Total observers: {len(self.observers)}")
+    
+    def notify(self, device_data: Dict) -> None:
+        for observer in self.observers:
+            observer.update(device_data)
+            

@@ -5,7 +5,7 @@ import time
 from typing import Optional, List, Dict
 from utils.helpers import log_message, get_network_interfaces, format_file_size
 from utils.constants import *
-from core.raw_socket import RawSocketManager
+from LinkChat.src.core.raw_socket_manager import raw_socket_manager
 from networking.discovery import DeviceDiscovery
 from networking.messaging import MessageManager
 from networking.file_transfer import FileTransferManager
@@ -113,7 +113,7 @@ class ConsoleInterface:
             print(f"\n🔧 Inicializando componentes en {interface}...")
             
             # Inicializar socket manager
-            self.socket_manager = RawSocketManager(interface)
+            self.socket_manager = raw_socket_manager(interface)
             if not self.socket_manager.start():
                 return False
             
@@ -121,32 +121,17 @@ class ConsoleInterface:
             self.device_discovery = DeviceDiscovery(self.socket_manager)
             self.device_discovery.start()
             
-            # Registrar callback para dispositivos descubiertos
-            self.device_discovery.register_callback(
-                "console_update", 
-                self._on_device_discovered
-            )
-            
+           
             # Inicializar gestor de mensajes
             self.message_manager = MessageManager(self.socket_manager)
             self.message_manager.start()
             
-            # Registrar callback para mensajes recibidos
-            self.message_manager.register_callback(
-                "console_display",
-                self._on_message_received
-            )
             
             # Inicializar gestor de archivos
             self.file_manager = FileTransferManager(self.socket_manager)
             self.file_manager.start()
             
-            # Registrar callbacks para transferencia de archivos
-            self.file_manager.register_callback(
-                "console_progress",
-                self._on_file_progress
-            )
-            
+
             self.is_running = True
             
             print("✅ Componentes inicializados correctamente")

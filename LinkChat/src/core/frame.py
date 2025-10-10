@@ -80,7 +80,7 @@ class LinkChatFrame:
             return None
         
         try:
-            # Extraer header completo (Ethernet + Link-Chat) en una sola operación
+            # Extraer header completo (Ethernet + Link-Chat)
             dest_mac_bytes, src_mac_bytes, ethertype, version, msg_type, msg_id, data_length, checksum = struct.unpack(
                 '!6s6sHBBIHH',
                 data[:cls.TOTAL_HEADER_SIZE]
@@ -121,23 +121,50 @@ class LinkChatFrame:
     
     def _calculate_checksum(self) -> int:
         """
-        Calcula el checksum del mensaje
+        Calcula el checksum del mensaje usando todos los campos del header
         
         Returns:
             int: Checksum calculado
         """
-        # Simple checksum basado en suma de bytes
         checksum = 0
-        checksum += self.version + self.msg_type
-        checksum += (self.msg_id >> 16) & 0xFFFF
-        checksum += self.msg_id & 0xFFFF
-        checksum += (self.data_length >> 16) & 0xFFFF
-        checksum += self.data_length & 0xFFFF
         
+        # Incluir direcciones MAC en el checksum
+        dest_mac_bytes = parse_mac_address(self.dest_mac)
+        src_mac_bytes = parse_mac_address(self.src_mac)
+        
+        # Sumar bytes de las MACs
+        for byte in dest_mac_bytes:
+            checksum += byte
+        for byte in src_mac_bytes:
+            checksum += byte
+        
+        # Incluir EtherType
+        checksum += (self.ethertype >> 8) & 0xFF
+        checksum += self.ethertype & 0xFF
+        
+        # Incluir campos del protocolo
+        checksum += self.version
+        checksum += self.msg_type
+        
+        # Incluir Message ID (4 bytes)
+        checksum += (self.msg_id >> 24) & 0xFF
+        checksum += (self.msg_id >> 16) & 0xFF
+        checksum += (self.msg_id >> 8) & 0xFF
+        checksum += self.msg_id & 0xFF
+        
+        # Incluir data length (usar len(self.data) para consistencia)
+        data_len = len(self.data)
+        checksum += (data_len >> 8) & 0xFF
+        checksum += data_len & 0xFF
+        
+        # Incluir todos los bytes del payload
         for byte in self.data:
             checksum += byte
         
-        return checksum & 0xFFFF
+        # Aplicar complemento a 1 para mejor detección de errores
+        checksum = (~checksum) & 0xFFFF
+        
+        return checksum
     
     def _verify_checksum(self) -> bool:
         """
@@ -147,9 +174,9 @@ class LinkChatFrame:
             bool: True si el checksum es válido
         """
         saved_checksum = self.checksum
-        self.checksum = 0
+        self.checksum = 0  # Temporal para cálculo
         calculated_checksum = self._calculate_checksum()
-        self.checksum = saved_checksum
+        self.checksum = saved_checksum  # Restaurar
         
         return calculated_checksum == saved_checksum
     
@@ -170,6 +197,15 @@ class LinkChatFrame:
             int: Tamaño total en bytes
         """
         return self.TOTAL_HEADER_SIZE + len(self.data)
+    
+    def is_broadcast(self) -> bool:
+        """
+        Verifica si la trama es de tipo broadcast
+        
+        Returns:
+            bool: True si es broadcast (FF:FF:FF:FF:FF:FF)
+        """
+        return self.dest_mac.upper() == "FF:FF:FF:FF:FF:FF"
     
     
     def __str__(self) -> str:
