@@ -122,13 +122,12 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
             
             # Inicializar socket manager
             self.socket_manager = raw_socket_manager(interface)
-            if not hasattr(self.socket_manager, 'start') or not self.socket_manager.start():
-                print("❌ Error iniciando socket manager")
-                return False
-            
+            self.socket_manager.start_reciving()
+               
             # Inicializar descubrimiento de dispositivos
             self.device_discovery = DeviceDiscovery(self.socket_manager)
             self.device_discovery.attach(self)  # Console observa cambios de dispositivos
+            self.device_discovery.start_discovery()
             
             # Inicializar servicio de mensajes
             self.message_service = MessageService()
@@ -145,9 +144,6 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
             print("✅ Componentes inicializados correctamente")
             print(f"📡 MAC local: {getattr(self.socket_manager, 'local_mac', 'N/A')}")
             print()
-            
-            # Iniciar descubrimiento automático
-            self.device_discovery.start_discovery()
             
             return True
             
@@ -553,3 +549,21 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
         
         print("✅ Link-Chat cerrado correctamente")
         sys.exit(0)
+
+
+def main():
+    """Función principal para ejecutar Link-Chat"""
+    try:
+        console = ConsoleInterface()
+        console.start()
+        console.main_menu()
+    except KeyboardInterrupt:
+        print("\n👋 Link-Chat cerrado por el usuario")
+        sys.exit(0)
+    except Exception as e:
+        print(f"❌ Error fatal: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

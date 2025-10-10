@@ -11,10 +11,6 @@ from ..utils.constants import MAX_CHUNK_SIZE,MSG_TYPE_FILE_START,MSG_TYPE_FILE_C
 from  ..utils.binary_serializer import BinarySerializer
 from .file_info import FileInfo
 
-
-
-
-
 class FileTransferService(Subject[File],Observer[LinkChatFrame]):
     def __init__(self):
         self.observers = set()
