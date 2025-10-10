@@ -4,7 +4,7 @@ import json
 from typing import Dict, List, Callable, Optional
 from utils.constants import *
 from utils.helpers import log_message, create_message_id, get_timestamp
-from core.unified_frame import LinkChatFrame
+from core.frame import LinkChatFrame
 from core.raw_socket import RawSocketManager
 
 
