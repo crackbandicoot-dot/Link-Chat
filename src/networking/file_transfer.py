@@ -40,13 +40,12 @@ class FileTransferService(Subject[File],Observer[LinkChatFrame]):
             self.save_file()
             self.notify(File(self.recived_file_name))
 
-        raw_socket_manager.send_frame(LinkChatFrame(data.src_mac,data.dest_mac,MSG_TYPE_MESSAGE_ACK,data.msg_id,b''))
+        self.socket_manager.send_frame(LinkChatFrame(data.src_mac,data.dest_mac,MSG_TYPE_MESSAGE_ACK,data.msg_id,b''))
 
     def split_chunks(self, file_path, chunk_size=MAX_CHUNK_SIZE):
 
         chunk_files = []
-        chunk_num = 1
-
+        
         with open(file_path, 'rb') as source_file:
             while True:
                 # Read chunk_size bytes
