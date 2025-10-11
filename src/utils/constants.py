@@ -20,7 +20,7 @@ MSG_TYPE_BROADCAST = 0x0A      # Mensaje broadcast
 # Configuración de transferencia de archivos
 MAX_CHUNK_SIZE = 1400  # Tamaño máximo de fragmento (considerando MTU)
 FILE_TIMEOUT = 30      # Timeout para transferencia de archivos (segundos)
-MAX_RETRIES = 3        # Máximo número de reintentos
+MAX_RETRIES = 10000        # Máximo número de reintentos
 
 # Configuración de red
 DISCOVERY_INTERVAL = 30    # Intervalo de descubrimiento (segundos)

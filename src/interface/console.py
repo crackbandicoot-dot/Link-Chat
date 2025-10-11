@@ -148,6 +148,7 @@ class ConsoleInterface(Observer):
         #except Exception as e:
         #    log_message("INFO", "Error inicializando componentes")
     
+        
     # Observer pattern implementation
     def update(self, data) -> None:
         """

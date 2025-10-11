@@ -24,8 +24,10 @@ class MessageService(Observer[LinkChatFrame],Subject[Message], ):
         attempts = 0
         while not self.confirmed_message and attempts<MAX_RETRIES:
             self.socket_manager.send_frame(frame)
-            await asyncio.sleep(1) 
+            await asyncio.sleep(0.1)
+            print("Retring messanging")
             attempts+=1
+        print("Message actually send it")
         return True
     
         
@@ -49,8 +51,9 @@ class MessageService(Observer[LinkChatFrame],Subject[Message], ):
          self.observers.remove(observer)
 
      def notify(self,notification: Message) -> None:
+         print("Mensaje recibido!!!!!!!!")
          for observer in self.observers:
-             observer.update(self,notification)
+             observer.update(notification)
 
 
 
