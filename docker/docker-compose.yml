@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  linkchat-node1:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: linkchat-node1
+    hostname: node1
+    networks:
+      linkchat-network:
+        ipv4_address: 172.20.0.10
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    privileged: true
+    volumes:
+      - ./shared:/app/shared
+      - node1-files:/app/received_files
+    environment:
+      - NODE_NAME=node1
+      - INTERFACE=eth0
+    stdin_open: true
+    tty: true
+
+  linkchat-node2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: linkchat-node2
+    hostname: node2
+    networks:
+      linkchat-network:
+        ipv4_address: 172.20.0.11
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    privileged: true
+    volumes:
+      - ./shared:/app/shared
+      - node2-files:/app/received_files
+    environment:
+      - NODE_NAME=node2
+      - INTERFACE=eth0
+    stdin_open: true
+    tty: true
+
+  linkchat-node3:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: linkchat-node3
+    hostname: node3
+    networks:
+      linkchat-network:
+        ipv4_address: 172.20.0.12
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    privileged: true
+    volumes:
+      - ./shared:/app/shared
+      - node3-files:/app/received_files
+    environment:
+      - NODE_NAME=node3
+      - INTERFACE=eth0
+    stdin_open: true
+    tty: true
+
+networks:
+  linkchat-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+
+volumes:
+  node1-files:
+  node2-files:
+  node3-files:
