@@ -9,7 +9,7 @@ from  ..core.frame import LinkChatFrame
 from ..DTOS.file import File
 from ..utils.constants import MAX_CHUNK_SIZE,MSG_TYPE_FILE_START,MSG_TYPE_FILE_CHUNK,MSG_TYPE_FILE_END,MSG_TYPE_MESSAGE_ACK,DOWNLOADS_PATH
 from  ..utils.binary_serializer import BinarySerializer
-from .file_info import FileInfo
+
 
 class FileTransferService(Subject[File],Observer[LinkChatFrame]):
     def __init__(self, socket_manager: raw_socket_manager):
@@ -60,7 +60,7 @@ class FileTransferService(Subject[File],Observer[LinkChatFrame]):
 
          #Send file start frame
          file_name = Path(file_path).name
-         file_info =FileInfo(file_name)
+         file_info =File(file_name)
          serialized_info =BinarySerializer.serialize(file_info)
          while not self.confirmed_frame:
              self.socket_manager.send_frame(LinkChatFrame(target_mac, self.socket_manager.get_self_mac(), MSG_TYPE_FILE_START, 0, serialized_info))

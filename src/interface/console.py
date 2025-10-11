@@ -4,18 +4,18 @@ import threading
 import time
 import asyncio
 from typing import Optional, List, Dict
-from utils.helpers import log_message, get_network_interfaces, format_file_size
-from utils.constants import *
-from core.raw_socket_manager import raw_socket_manager
-from networking.discovery import DeviceDiscovery
-from networking.messaging import MessageService
-from networking.file_transfer import FileTransferService
-from observer.observer import Observer
-from DTOS.message import Message
-from DTOS.file import File
+from ..utils.helpers import log_message, get_network_interfaces, format_file_size
+from ..utils.constants import *
+from ..core.raw_socket_manager import raw_socket_manager
+from ..networking.discovery import DeviceDiscovery
+from ..networking.messaging import MessageService
+from ..networking.file_transfer import FileTransferService
+from ..observer.observer import  Observer
+from ..DTOS.message import Message
+from ..DTOS.file import File
 
 
-class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
+class ConsoleInterface(Observer):
     """
     Interfaz de consola principal para Link-Chat
     Implementa el patrón Observer para recibir notificaciones de dispositivos, mensajes y archivos
@@ -54,10 +54,10 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
     def show_welcome(self) -> None:
         """Muestra la pantalla de bienvenida"""
         os.system('cls' if os.name == 'nt' else 'clear')
-        print("╔" + "="*48 + "╗")
-        print("║          LINK-CHAT             ║")
-        print("║      Mensajería y Transferencia de Archivos ║")
-        print("╚" + "="*48 + "╝")
+        print("LINK-CHAT")
+        print("="*48)
+        print("Mensajeria y Transferencia de Archivos")
+        print("="*48)
         print()
         print("🚀 Iniciando Link-Chat...")
         print("⚠️  Nota: Esta aplicación requiere permisos de administrador")
@@ -154,7 +154,7 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
         """
         Implementación del patrón Observer para recibir notificaciones
         de dispositivos, mensajes y archivos
-        
+
         Args:
             data: Puede ser Dict (dispositivos), Message (mensajes) o File (archivos)
         """
@@ -162,11 +162,11 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
             if isinstance(data, dict) and 'mac' in data:
                 # Notificación de dispositivo
                 self._handle_device_update(data)
-            elif isinstance(data, Message):
-                # Notificación de mensaje
+            elif hasattr(data, 'sender_mac') and hasattr(data, 'text'):
+                # Notificación de mensaje (Message object)
                 self._handle_message_update(data)
-            elif isinstance(data, File):
-                # Notificación de archivo
+            elif hasattr(data, 'name') and hasattr(data, 'size'):
+                # Notificación de archivo (File object)
                 self._handle_file_update(data)
     
     def _handle_device_update(self, device_data: Dict) -> None:
@@ -231,16 +231,15 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
         """Muestra el menú principal"""
         os.system('cls' if os.name == 'nt' else 'clear')
         
-        print("╔" + "="*50 + "╗")
-        print("║                LINK-CHAT MENÚ                 ║")
-        print("╠" + "="*50 + "╣")
-        print("║  1. 💬 Mensajería                            ║")
-        print("║  2. 📁 Transferencia de Archivos             ║")
-        print("║  3. 🔍 Dispositivos Descubiertos             ║")
-        print("║  4. 🌐 Información de Red                    ║")
-        print("║  5. ⚙️  Configuración                        ║")
-        print("║  0. 🚪 Salir                                 ║")
-        print("╚" + "="*50 + "╝")
+        print("LINK-CHAT MENU")
+        print("="*50)
+        print("1. Mensajeria")
+        print("2. Transferencia de Archivos")
+        print("3. Dispositivos Descubiertos")
+        print("4. Informacion de Red")
+        print("5. Configuracion")
+        print("0. Salir")
+        print("="*50)
         
         # Mostrar estado
         device_count = len(self.device_discovery.discovered_devices) if self.device_discovery else 0

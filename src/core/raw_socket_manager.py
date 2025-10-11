@@ -1,172 +1,144 @@
-import socket
-import struct
-import threading
 
+import socket
+import threading
+from typing import List
 
 from .frame import LinkChatFrame
 from ..observer.subject import Subject
 from ..observer.observer import Observer
-from ..utils.constants import ETHERTYPE_LINKCHAT
-
-# Constants
-BUFFER_SIZE = 65536  # Max possible size for an IP packet, good for capturing full frames
-
+from ..utils.constants import ETHERTYPE_LINKCHAT,BUFFER_SIZE
 
 class raw_socket_manager(Subject[LinkChatFrame]):
     """
     A wrapper class for a raw socket to send and receive LinkChatFrame objects.
-    
+
     This class handles the creation, binding, and usage of a raw socket
     at the link layer (Ethernet). It requires root privileges to run.
+    It is designed to be thread-safe.
     """
 
     def __init__(self, interface_name: str):
         """
-        Initializes and binds the raw socket to a specific network interface.
-        
+        Initializes the raw socket, binds it to the interface, and prepares for concurrent access.
+
         Args:
-            interface_name (str): The name of the network interface to use (e.g., 'eth0', 'enp3s0').
-            
+            interface_name: The name of the network interface to use (e.g., 'eth0').
+
         Raises:
-            PermissionError: If the script is not run with sufficient privileges (e.g., as root).
-            OSError: If the network interface does not exist or another network-related error occurs.
+            PermissionError: If the script is not run with sufficient privileges.
+            OSError: If the interface does not exist or another network error occurs.
         """
-        self.interface_name = interface_name
-        self.sock = None
-        self.observers = set()
         try:
-            # Create a raw socket that can read all incoming packets (ETH_P_ALL)
-            # AF_PACKET allows communication at the device driver level (OSI Layer 2)
-            # SOCK_RAW gives us the raw packets including the link-layer header
-            # socket.nhtons(ETHERTYPE_LINKCHAT) its for using our protocol
-            self.sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(ETHERTYPE_LINKCHAT))
-
-            # Bind the socket to the specified network interface
-            self.sock.bind((self.interface_name, 0))
-            print(f"Socket successfully created and bound to interface '{self.interface_name}'")
-
-        except PermissionError:
-            print(f"Error: Permission denied to create raw socket. Try running with 'sudo'.")
+            # Create a raw socket that listens for our custom EtherType
+            self.sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(ETHERTYPE_LINKCHAT))
+            self.sock.bind((interface_name, 0))
+        except (PermissionError, OSError) as e:
+            print(f"Error creating or binding socket: {e}")
+            print("This operation typically requires root privileges (e.g., 'sudo python your_script.py')")
             raise
-        except OSError as e:
-            print(f"Error binding to interface '{self.interface_name}': {e}")
-            raise
+
+        self._self_mac = self.sock.getsockname()[4]
+        self._observers: List[Observer[LinkChatFrame]] = []
+        self._observer_lock = threading.Lock()
+
+        self._is_receiving = False
+        self._receive_thread: threading.Thread = None
 
     def send_frame(self, frame_to_send: LinkChatFrame) -> bool:
         """
         Sends a LinkChatFrame over the raw socket.
-        
+
         Args:
-            frame_to_send (LinkChatFrame): The frame object to be sent.
-            
+            frame_to_send: The LinkChatFrame object to be sent.
+
         Returns:
-            bool: True if the frame was sent successfully, False otherwise.
+            True if sending was successful, False otherwise.
         """
-        if not self.sock:
-            print("Error: Socket is not initialized.")
-            return False
-
         try:
-            # Convert the frame object to its byte representation
-            frame_bytes = frame_to_send.to_bytes()
-
-            # Send the raw bytes through the socket
-            self.sock.send(frame_bytes)
-            # print(f"Sent frame: {frame_to_send}")
+            packed_frame = frame_to_send.to_bytes()
+            self.sock.send(packed_frame)
             return True
-
-        except OSError as e:
-            print(f"Error sending frame: {e}")
+        except socket.error as e:
+            print(f"Failed to send frame: {e}")
             return False
 
     def receive_frames(self) -> None:
         """
-        Receives and parses a LinkChatFrames from the raw socket.
-        
-        This method listens for incoming packets and attempts to parse them
-        as LinkChatFrame objects. It will ignore any packets that do not
-        match the LinkChat protocol (e.g., wrong EtherType, bad checksum).
-        
-        This is a blocking call.
-        
-        Returns:
-            None
+        The target method for the receiving thread.
+        Listens for incoming packets, unpacks them, and notifies observers.
+        This method will block until the socket is closed.
         """
-        if not self.sock:
-            print("Error: Socket is not initialized.")
-            return None
-
-        while True:
+        while self._is_receiving:
             try:
-                # Receive raw data from the socket.
-                # recvfrom returns (bytes, address_info)
-                # For AF_PACKET, address_info includes protocol, packet type, etc.
-                raw_data, _ = self.sock.recvfrom(BUFFER_SIZE)
-
-                # Check if the EtherType matches our protocol before full parsing
-                # This is a quick filter to avoid unnecessary processing
-                # EtherType is located at bytes 12 and 13
-                if len(raw_data) >= 14:
-                    ethertype, = struct.unpack('!H', raw_data[12:14])
-                    if ethertype != ETHERTYPE_LINKCHAT:
-                        continue  # Not our protocol, ignore and wait for the next packet
-                else:
-                    continue  # Packet is too short, ignore
-
-                # Attempt to parse the raw data into a LinkChatFrame
-                # The from_bytes method handles all validation (size, checksum, etc.)
-                frame = LinkChatFrame.from_bytes(raw_data)
-
-                if frame:
-                    #Notify observers
-                    self.notify(frame)
-                    # If frame is None, it means the packet was for our EtherType
-                # but failed validation (e.g., bad checksum). Loop to get the next one.
-
-            except OSError as e:
-                print(f"Error receiving frame: {e}")
-                return None
-            except Exception as e:
-                print(f"An unexpected error occurred during frame reception: {e}")
-                return None
+                # Blocking call to receive data
+                raw_packet, _ = self.sock.recvfrom(BUFFER_SIZE)
+                if raw_packet and self._is_receiving:
+                    received_frame = LinkChatFrame.from_bytes(raw_packet)
+                    self.notify(received_frame)
+            except socket.error:
+                # An error (e.g., socket closed) will break the loop
+                break
 
     def close_socket(self):
-        """
-        Closes the raw socket.
-        """
+        """Closes the socket if it is open."""
         if self.sock:
-            print("Closing socket.")
             self.sock.close()
             self.sock = None
 
     def start_reciving(self) -> None:
-        """
-        Starts a thread to receive frames in the background.
-        
-        Returns:
-            None
-        
-        """
-        self.is_running = True
-        self.receive_thread = threading.Thread(target=self.receive_frames, deamon=True)
-        self.receive_thread.start()
+        """Starts the frame receiving thread if it's not already running."""
+        if not self._is_receiving:
+            self._is_receiving = True
+            self._receive_thread = threading.Thread(target=self.receive_frames, daemon=True)
+            self._receive_thread.start()
 
     def stop_reciving(self) -> None:
-        """
-        Stops the receiving thread.
-        """
-        self.is_running=False
-        self.receive_thread.join()
+        """Stops the frame receiving thread gracefully."""
+        if self._is_receiving:
+            self._is_receiving = False
+            self.close_socket()  # Unblocks the blocking recvfrom call
+            if self._receive_thread and self._receive_thread.is_alive():
+                self._receive_thread.join()  # Wait for the thread to finish
+            self._receive_thread = None
 
-    def get_self_mac(self):
-        pass
+    def get_self_mac(self) -> bytes:
+        """Returns the MAC address of the interface this socket is bound to."""
+        return self._self_mac
 
     def attach(self, observer: Observer[LinkChatFrame]) -> None:
-        self.observers.remove(observer)
+        """
+        Attaches an observer to the subject in a thread-safe manner.
 
-    def notify(self,message :LinkChatFrame) -> None:
-        for observer in self.observers:
-            observer.update(self,message)
+        Args:
+            observer: The observer object to attach.
+        """
+        with self._observer_lock:
+            if observer not in self._observers:
+                self._observers.append(observer)
+
+    def notify(self, message: LinkChatFrame) -> None:
+        """
+        Notifies all attached observers with a message in a thread-safe manner.
+
+        Args:
+            message: The LinkChatFrame message to send to observers.
+        """
+        with self._observer_lock:
+            # Iterate over a copy of the list to allow observers to detach during notification
+            observers_copy = self._observers[:]
+
+        for observer in observers_copy:
+            observer.update(message)
 
     def detach(self, observer: Observer[LinkChatFrame]) -> None:
-        self.observers.add(observer)
+        """
+        Detaches an observer from the subject in a thread-safe manner.
+
+        Args:
+            observer: The observer object to detach.
+        """
+        with self._observer_lock:
+            try:
+                self._observers.remove(observer)
+            except ValueError:
+                pass  # Observer not in list, do nothing

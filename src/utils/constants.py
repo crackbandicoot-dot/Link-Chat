@@ -53,3 +53,5 @@ MAX_FILENAME_SIZE = 255    # Tamaño máximo de nombre de archivo
 MAX_DEVICES = 100          # Máximo número de dispositivos en la red
 
 DOWNLOADS_PATH = '/home/Downloads'
+
+BUFFER_SIZE = 65536 # Tamaño máximo de un IP Frame
