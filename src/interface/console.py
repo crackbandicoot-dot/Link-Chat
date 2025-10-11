@@ -2,27 +2,27 @@ import os
 import sys
 import threading
 import time
-import asyncio
 from typing import Optional, List, Dict
-from ..utils.helpers import log_message, get_network_interfaces, format_file_size
+from ..utils.helpers import log_message, get_network_interfaces
 from ..utils.constants import *
 from ..core.raw_socket_manager import raw_socket_manager
 from ..networking.discovery import DeviceDiscovery
 from ..networking.messaging import MessageService
 from ..networking.file_transfer import FileTransferService
-from ..observer.observer import  Observer
+from ..observer.observer import Observer
 from ..DTOS.message import Message
 from ..DTOS.file import File
+from .main_menu import MainMenu
 
 
 class ConsoleInterface(Observer):
     """
-    Interfaz de consola principal para Link-Chat
-    Implementa el patrón Observer para recibir notificaciones de dispositivos, mensajes y archivos
+    Main console interface for Link-Chat
+    Implements Observer pattern to receive notifications from devices, messages and files
     """
     
     def __init__(self):
-        """Inicializa la interfaz de consola"""
+        """Initialize console interface"""
         self.socket_manager = None
         self.device_discovery = None
         self.message_service = None
@@ -31,28 +31,32 @@ class ConsoleInterface(Observer):
         self.input_thread = None
         self.received_messages = []
         self.received_files = []
-        self.display_lock = threading.Lock()  # Para thread-safe console updates
+        self.display_lock = threading.Lock()
+        self.waiting_for_input = False
+        self.pending_notifications = []
+        self.main_menu = None
         
     def start(self) -> None:
-        """Inicia la interfaz de consola"""
+        """Start console interface"""
         self.show_welcome()
         
-        # Seleccionar interfaz de red
+        # Select network interface
         interface = self.select_network_interface()
         if not interface:
             print("❌ No se pudo seleccionar una interfaz de red.")
             return
         
-        # Inicializar componentes
+        # Initialize components
         if not self.initialize_components(interface):
             print("❌ Error inicializando componentes de red.")
             return
         
-        # Mostrar menú principal
-        self.main_menu()
+        # Initialize and show main menu
+        self.main_menu = MainMenu(self)
+        self.main_menu.main_menu_loop()
     
     def show_welcome(self) -> None:
-        """Muestra la pantalla de bienvenida"""
+        """Show welcome screen"""
         os.system('cls' if os.name == 'nt' else 'clear')
         print("LINK-CHAT")
         print("="*48)
@@ -65,10 +69,10 @@ class ConsoleInterface(Observer):
     
     def select_network_interface(self) -> Optional[str]:
         """
-        Permite al usuario seleccionar una interfaz de red
+        Allow user to select a network interface
         
         Returns:
-            Optional[str]: Nombre de la interfaz seleccionada
+            Optional[str]: Selected interface name
         """
         interfaces = get_network_interfaces()
         
@@ -108,35 +112,34 @@ class ConsoleInterface(Observer):
     
     def initialize_components(self, interface: str) -> bool:
         """
-        Inicializa todos los componentes de red
+        Initialize all network components
         
         Args:
-            interface: Interfaz de red a usar
+            interface: Network interface to use
             
         Returns:
-            bool: True si se inicializó correctamente
+            bool: True if initialized correctly
         """
-        #try:
         print(f"\n🔧 Inicializando componentes en {interface}...")
         
-        # Inicializar socket manager
+        # Initialize socket manager
         self.socket_manager = raw_socket_manager(interface)
         self.socket_manager.start_reciving()
            
-        # Inicializar descubrimiento de dispositivos
+        # Initialize device discovery
         self.device_discovery = DeviceDiscovery(self.socket_manager)
-        self.device_discovery.attach(self)  # Console observa cambios de dispositivos
+        self.device_discovery.attach(self)
         self.device_discovery.start_discovery()
         
-        # Inicializar servicio de mensajes
+        # Initialize message service
         self.message_service = MessageService(self.socket_manager)
-        self.socket_manager.attach(self.message_service)  # MessageService observa tramas
-        self.message_service.attach(self)  # Console observa mensajes recibidos
+        self.socket_manager.attach(self.message_service)
+        self.message_service.attach(self)
         
-        # Inicializar servicio de archivos
+        # Initialize file service
         self.file_service = FileTransferService(self.socket_manager)
-        self.socket_manager.attach(self.file_service)  # FileService observa tramas
-        self.file_service.attach(self)  # Console observa archivos recibidos
+        self.socket_manager.attach(self.file_service)
+        self.file_service.attach(self)
         self.is_running = True
         
         print("✅ Componentes inicializados correctamente")
@@ -144,376 +147,79 @@ class ConsoleInterface(Observer):
         print()
         
         return True
-            
-        #except Exception as e:
-        #    log_message("INFO", "Error inicializando componentes")
-    
         
     # Observer pattern implementation
     def update(self, data) -> None:
         """
-        Implementación del patrón Observer para recibir notificaciones
-        de dispositivos, mensajes y archivos
+        Observer pattern implementation to receive notifications
+        from devices, messages and files
 
         Args:
-            data: Puede ser Dict (dispositivos), Message (mensajes) o File (archivos)
+            data: Can be Dict (devices), Message (messages) or File (files)
         """
         with self.display_lock:
             if isinstance(data, dict) and 'mac' in data:
-                # Notificación de dispositivo
                 self._handle_device_update(data)
             elif hasattr(data, 'sender_mac') and hasattr(data, 'text'):
-                # Notificación de mensaje (Message object)
                 self._handle_message_update(data)
             elif hasattr(data, 'name') and hasattr(data, 'size'):
-                # Notificación de archivo (File object)
                 self._handle_file_update(data)
     
     def _handle_device_update(self, device_data: Dict) -> None:
-        """Maneja actualizaciones de dispositivos - SIMPLIFICADO"""
+        """Handle device updates"""
         mac = device_data['mac']
         action = device_data['action']
         
-        # ✅ Solo mostrar notificaciones, no duplicar datos
         if action == 'discovered':
             self._show_notification(f"🔍 Nuevo dispositivo descubierto: {mac}")
         elif action == 'disconnected':
             self._show_notification(f"📴 Dispositivo desconectado: {mac}")
-        # 'updated' actions no necesitan notificación en consola
     
     def _handle_message_update(self, message: Message) -> None:
-        """Maneja mensajes recibidos"""
+        """Handle received messages"""
         self.received_messages.append(message)
         self._show_notification(f"💬 Mensaje de {message.sender_mac}: {message.text[:50]}...")
     
     def _handle_file_update(self, file: File) -> None:
-        """Maneja archivos recibidos"""
+        """Handle received files"""
         self.received_files.append(file)
         self._show_notification(f"📁 Archivo recibido: {file.name}")
     
     def _show_notification(self, message: str) -> None:
-        """Muestra notificaciones en tiempo real"""
-        # Solo mostrar si no estamos en un menú activo
-        print(f"\n{message}")
-        print("Presione Enter para continuar...")
-    
-    def main_menu(self) -> None:
-        """Muestra y maneja el menú principal"""
-        while self.is_running:
-            try:
-                self.show_main_menu()
-                choice = input("\nSeleccione una opción: ").strip()
-                
-                if choice == "1":
-                    self.messaging_menu()
-                elif choice == "2":
-                    self.file_transfer_menu()
-                elif choice == "3":
-                    self.show_discovered_devices()
-                elif choice == "4":
-                    self.show_network_info()
-                elif choice == "0":
-                    self.shutdown()
-                    break
-                else:
-                    print("❌ Opción inválida. Intente de nuevo.")
-                    time.sleep(1)
-                    
-            except KeyboardInterrupt:
-                print("\n👋 Saliendo...")
-                self.shutdown()
-                break
-            except Exception as e:
-                log_message("ERROR", f"Error en menú principal: {e}")
-                time.sleep(2)
-    
-    def show_main_menu(self) -> None:
-        """Muestra el menú principal"""
-        os.system('cls' if os.name == 'nt' else 'clear')
-        
-        print("LINK-CHAT MENU")
-        print("="*50)
-        print("1. Mensajeria")
-        print("2. Transferencia de Archivos")
-        print("3. Dispositivos Descubiertos")
-        print("4. Informacion de Red")
-        print("0. Salir")
-        print("="*50)
-        
-        # Mostrar estado
-        device_count = len(self.device_discovery.discovered_devices) if self.device_discovery else 0
-        print(f"\n📊 Estado: {device_count} dispositivos descubiertos")
-        
-       
-    
-    def messaging_menu(self) -> None:
-        """Menú de mensajería"""
-        while True:
-            os.system('cls' if os.name == 'nt' else 'clear')
-            print("╔" + "="*40 + "╗")
-            print("║           MENSAJERÍA                      ║")
-            print("╚" + "="*40 + "╝")
-            print()
-            
-            print("1. 📤 Enviar mensaje a dispositivo")
-            print("2. 📢 Enviar mensaje broadcast")
-            print("3. 📥 Ver mensajes recibidos")
-            print("0. ⬅️  Volver al menú principal")
-            print()
-            
-            choice = input("Seleccione una opción: ").strip()
-            
-            if choice == "1":
-                self.send_message_to_device()
-            elif choice == "2":
-                self.send_broadcast_message()
-            elif choice == "3":
-                self.show_received_messages()
-            elif choice == "0":
-                break
-            else:
-                print("❌ Opción inválida")
-                time.sleep(1)
-    
-    def file_transfer_menu(self) -> None:
-        """Menú de transferencia de archivos"""
-        while True:
-            os.system('cls' if os.name == 'nt' else 'clear')
-            print("╔" + "="*45 + "╗")
-            print("║         TRANSFERENCIA DE ARCHIVOS        ║")
-            print("╚" + "="*45 + "╝")
-            print()
-            
-            print("1. 📤 Enviar archivo")
-            print("2. 📥 Ver historial de transferencias")
-            print("0. ⬅️  Volver al menú principal")
-            print()
-            
-            choice = input("Seleccione una opción: ").strip()
-            
-            if choice == "1":
-                self.send_file()
-            elif choice == "2":
-                self.show_transfer_historial()
-            elif choice == "0":
-                break
-            else:
-                print("❌ Opción inválida")
-                time.sleep(1)
-    
-    def show_discovered_devices(self) -> None:
-        """Muestra los dispositivos descubiertos - USA DeviceDiscovery"""
-        os.system('cls' if os.name == 'nt' else 'clear')
-        print("╔" + "="*50 + "╗")
-        print("║           DISPOSITIVOS DESCUBIERTOS           ║")
-        print("╚" + "="*50 + "╝")
-        print()
-        
-        # ✅ Obtener datos desde DeviceDiscovery (fuente única)
-        if not self.device_discovery or not self.device_discovery.discovered_devices:
-            print("🔍 No se han descubierto dispositivos aún...")
-            print("   El descubrimiento automático está en progreso.")
+        """Show notifications"""
+        if self.waiting_for_input:
+            self.pending_notifications.append(message)
         else:
-            devices = self.device_discovery.discovered_devices
-            print(f"📱 {len(devices)} dispositivos encontrados:")
-            print()
-            
-            for i, (mac, info) in enumerate(devices.items(), 1):
-                status = "🟢 Activo" if info.get('active', False) else "🔴 Inactivo"
-                last_seen = info.get('last_seen', 'Desconocido')
-                print(f"  {i}. MAC: {mac}")
-                print(f"     Estado: {status}")
-                print(f"     Última vez visto: {last_seen}")
-                print()
-        
-        input("\nPresione Enter para continuar...")
+            print(f"\n{message}")
+            print("Presione Enter para continuar...")
     
-    def show_network_info(self) -> None:
-        """Muestra información de la red"""
-        os.system('cls' if os.name == 'nt' else 'clear')
-        print("╔" + "="*45 + "╗")
-        print("║          INFORMACIÓN DE RED              ║")
-        print("╚" + "="*45 + "╝")
-        print()
-        
-        if self.socket_manager:
-            print(f"🔌 Interfaz: {self.socket_manager.interface}")
-            print(f"📡 MAC local: {self.socket_manager.get_local_mac()}")
-            print(f"🌐 Protocolo: Link-Chat v{PROTOCOL_VERSION}")
-            print(f"🔢 EtherType: 0x{ETHERTYPE_LINKCHAT:04X}")
-        
-        print()  
-        input("\nPresione Enter para continuar...")
-    
-    def send_message_to_device(self) -> None:
-        """Envía un mensaje a un dispositivo específico - USA DeviceDiscovery"""
-        if not self.device_discovery or not self.device_discovery.discovered_devices:
-            print("❌ No hay dispositivos descubiertos para enviar mensajes.")
-            input("Presione Enter para continuar...")
-            return
-        devices = list(self.device_discovery.discovered_devices.keys())
-        
-        # Mostrar dispositivos disponibles
-        print("📱 Dispositivos disponibles:")
-        for i, mac in enumerate(devices, 1):
-            info = self.device_discovery.discovered_devices[mac]
-            status = "🟢" if info.get('active', False) else "🔴"
-            print(f"  {i}. {mac} {status}")
+    def safe_input(self, prompt: str) -> str:
+        """Input that blocks notifications"""
+        self.waiting_for_input = True
         
         try:
-            choice = int(input(f"\nSeleccione dispositivo (1-{len(devices)}): ")) - 1
-            if 0 <= choice < len(devices):
-                target_mac = devices[choice]
-                message = input("Ingrese el mensaje: ")
-                
-                if message.strip():
-                    # Enviar mensaje usando MessageService
-                    import asyncio
-                    success = asyncio.run(self.message_service.send_message(target_mac, message))
-                    if success:
-                        print("✅ Mensaje enviado correctamente")
-                    else:
-                        print("❌ Error enviando mensaje")
-                else:
-                    print("❌ Mensaje vacío")
-            else:
-                print("❌ Selección inválida")
-                
-        except ValueError:
-            print("❌ Ingrese un número válido")
-        except Exception as e:
-            print(f"❌ Error: {e}")
-        
-        input("Presione Enter para continuar...")
-    
-    def send_broadcast_message(self) -> None:
-        """Envía un mensaje broadcast a todos los dispositivos"""
-        message = input("Ingrese el mensaje broadcast: ")
-        
-        if message.strip():
-            import asyncio
-            if asyncio.run(self.message_service.send_message(BROADCAST_MAC, message)):
-                print(f"✅ Mensaje enviado")
-            else:
-                print("❌ Error enviando mensaje broadcast")
-        else:
-            print("❌ Mensaje vacío")
-        
-        input("Presione Enter para continuar...")
-    
-    def send_file(self) -> None:
-        """Envía un archivo a un dispositivo - USA DeviceDiscovery"""
-        # ✅ Obtener devices desde DeviceDiscovery
-        if not self.device_discovery or not self.device_discovery.discovered_devices:
-            print("❌ No hay dispositivos descubiertos.")
-            input("Presione Enter para continuar...")
-            return
-        
-        # Seleccionar archivo
-        filepath = input("Ingrese la ruta del archivo: ").strip().strip('"')
-        
-        if not os.path.exists(filepath):
-            print("❌ El archivo no existe")
-            input("Presione Enter para continuar...")
-            return
-        
-        if not os.path.isfile(filepath):
-            print("❌ La ruta no es un archivo válido")
-            input("Presione Enter para continuar...")
-            return
-        
-        # Mostrar información del archivo
-        file_size = os.path.getsize(filepath)
-        print(f"📁 Archivo: {os.path.basename(filepath)}")
-        print(f"📏 Tamaño: {format_file_size(file_size)}")
-        
-        # ✅ Usar DeviceDiscovery como fuente única
-        devices = list(self.device_discovery.discovered_devices.keys())
-        
-        # Seleccionar dispositivo destino
-        print("\n📱 Dispositivos disponibles:")
-        for i, mac in enumerate(devices, 1):
-            info = self.device_discovery.discovered_devices[mac]
-            status = "🟢" if info.get('active', False) else "🔴"
-            print(f"  {i}. {mac} {status}")
-        
-        try:
-            choice = int(input(f"\nSeleccione dispositivo (1-{len(devices)}): ")) - 1
-            if 0 <= choice < len(devices):
-                target_mac = devices[choice]
-                
-                print(f"\n📤 Iniciando transferencia a {target_mac}...")
-                try:
-                    success = asyncio.run(self.file_transfer_service.send_file(target_mac, filepath))
+            result = input(prompt)
+        finally:
+            self.waiting_for_input = False
+            if self.pending_notifications:
+                print(f"\n📱 {len(self.pending_notifications)} notificaciones:")
+                for notification in self.pending_notifications:
+                    print(f"  {notification}")
+                self.pending_notifications.clear()
                     
-                    if success:
-                        print("✅ Transferencia iniciada")
-                    else:
-                        print("❌ Error iniciando transferencia")
-                except Exception as e:
-                    print(f"❌ Error en transferencia: {e}")
-            else:
-                print("❌ Selección inválida")
-                
-        except ValueError:
-            print("❌ Ingrese un número válido")
-        except Exception as e:
-            print(f"❌ Error: {e}")
-        
-        input("Presione Enter para continuar...")
-    
-    def show_received_messages(self) -> None:
-        """Muestra los mensajes recibidos"""
-        os.system('cls' if os.name == 'nt' else 'clear')
-        print("╔" + "="*50 + "╗")
-        print("║           MENSAJES RECIBIDOS                  ║")
-        print("╚" + "="*50 + "╝")
-        print()
-        
-        if not self.received_messages:
-            print("📭 No hay mensajes recibidos aún...")
-        else:
-            print(f"📬 {len(self.received_messages)} mensajes recibidos:")
-            print()
-            
-            for i, message in enumerate(self.received_messages[-10:], 1):  # Mostrar últimos 10
-                print(f"  {i}. De: {message.sender_mac}")
-                print(f"     📝 {message.text}")
-                print()
-        
-        input("Presione Enter para continuar...")
-    
-    def show_transfer_historial(self) -> None:
-        """Muestra el historial de transferencias"""
-        os.system('cls' if os.name == 'nt' else 'clear')
-        print("╔" + "="*50 + "╗")
-        print("║        ARCHIVOS RECIBIDOS                     ║")
-        print("╚" + "="*50 + "╝")
-        print()
-        
-        if not self.received_files:
-            print("📭 No hay archivos recibidos aún...")
-        else:
-            print(f"📬 {len(self.received_files)} archivos recibidos:")
-            print()
-            
-            for i, file in enumerate(self.received_files, 1):
-                print(f"  {i}. 📁 {file.name}")
-            print()
-        
-        input("Presione Enter para continuar...")
+        return result
     
     def shutdown(self) -> None:
-        """Cierra la aplicación limpiamente"""
-        print("\n� Cerrando Link-Chat...")
+        """Close application cleanly"""
+        print("\n🔄 Cerrando Link-Chat...")
         
         self.is_running = False
         
-        # Detener servicios
+        # Stop services
         if self.device_discovery:
             self.device_discovery.stop()
         
-        # Cerrar socket manager
+        # Close socket manager
         if self.socket_manager:
             self.socket_manager.close_socket()
         
