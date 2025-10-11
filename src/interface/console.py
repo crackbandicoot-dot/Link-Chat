@@ -130,25 +130,25 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
             self.device_discovery.start_discovery()
             
             # Inicializar servicio de mensajes
-            self.message_service = MessageService()
+            self.message_service = MessageService(self.socket_manager)
             self.socket_manager.attach(self.message_service)  # MessageService observa tramas
             self.message_service.attach(self)  # Console observa mensajes recibidos
             
             # Inicializar servicio de archivos
-            self.file_service = FileTransferService()
+            self.file_service = FileTransferService(self.socket_manager)
             self.socket_manager.attach(self.file_service)  # FileService observa tramas
             self.file_service.attach(self)  # Console observa archivos recibidos
 
             self.is_running = True
             
             print("✅ Componentes inicializados correctamente")
-            print(f"📡 MAC local: {getattr(self.socket_manager, 'local_mac', 'N/A')}")
+            print(f"📡 MAC local: {self.socket_manager.local_mac}")
             print()
             
             return True
             
         except Exception as e:
-            log_message("INFO", "Hilo de heartbeat detenido")
+            log_message("INFO", "Error inicializando componentes")
     
     # Observer pattern implementation
     def update(self, data) -> None:
