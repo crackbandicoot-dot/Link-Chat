@@ -4,8 +4,13 @@ import struct
 import time
 from typing import Optional, List, Dict, Any
 import socket
-import fcntl
 import array
+
+# Platform-specific imports
+try:
+    import fcntl  # Unix/Linux only
+except ImportError:
+    fcntl = None  # Windows doesn't have fcntl
             
 def check_admin_privileges() -> bool:
     """
@@ -39,7 +44,10 @@ def get_network_interfaces() -> List[str]:
             for interface_name, _ in psutil.net_if_addrs().items():
                 interfaces.append(interface_name)
         else:
-            # Usar ioctl para obtener interfaces
+            # Usar ioctl para obtener interfaces (Unix/Linux only)
+            if fcntl is None:
+                raise ImportError("fcntl not available on Windows")
+                
             max_possible = 128
             bytes_len = max_possible * 32
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -132,3 +140,25 @@ def log_message(level: str, message: str, show_timestamp: bool = True) -> None:
     reset = level_colors["RESET"]
     
     print(f"{timestamp}{color}[{level}]{reset} {message}")
+
+
+def format_file_size(size_bytes: int) -> str:
+    """
+    Formatea el tamaño de archivo en unidades legibles
+    
+    Args:
+        size_bytes: Tamaño en bytes
+        
+    Returns:
+        str: Tamaño formateado (ej: "1.5 MB", "2.3 KB")
+    """
+    if size_bytes == 0:
+        return "0 B"
+    
+    size_names = ["B", "KB", "MB", "GB", "TB"]
+    import math
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 2)
+    
+    return f"{s} {size_names[i]}"
