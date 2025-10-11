@@ -17,7 +17,7 @@ class MessageService(Observer[LinkChatFrame],Subject[Message], ):
      async def send_message(self,target_mac:str,message:str)->bool:
         #Try send message
         message_bytes = message.encode('utf-8')
-        frame = LinkChatFrame(target_mac,raw_socket_manager.get_self_mac(),MSG_TYPE_MESSAGE,0,message_bytes)
+        frame = LinkChatFrame(target_mac,raw_socket_manager.get_local_mac(),MSG_TYPE_MESSAGE,0,message_bytes)
 
         #Retry sending
         attempts = 0
@@ -32,7 +32,7 @@ class MessageService(Observer[LinkChatFrame],Subject[Message], ):
          if data.msg_type == MSG_TYPE_MESSAGE:
              message_text = data.data.decode('utf-8')
              message = Message(message_text,data.src_mac)
-             self.socket_manager.send_frame(LinkChatFrame(data.src_mac,self.socket_manager.get_self_mac(),MSG_TYPE_MESSAGE_ACK,0,b''))
+             self.socket_manager.send_frame(LinkChatFrame(data.src_mac,self.socket_manager.get_local_mac(),MSG_TYPE_MESSAGE_ACK,0,b''))
              self.notify(message)
 
          if data.msg_type == MSG_TYPE_MESSAGE_ACK:

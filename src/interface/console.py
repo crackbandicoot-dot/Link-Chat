@@ -116,38 +116,37 @@ class ConsoleInterface(Observer):
         Returns:
             bool: True si se inicializó correctamente
         """
-        try:
-            print(f"\n🔧 Inicializando componentes en {interface}...")
+        #try:
+        print(f"\n🔧 Inicializando componentes en {interface}...")
+        
+        # Inicializar socket manager
+        self.socket_manager = raw_socket_manager(interface)
+        self.socket_manager.start_reciving()
+           
+        # Inicializar descubrimiento de dispositivos
+        self.device_discovery = DeviceDiscovery(self.socket_manager)
+        self.device_discovery.attach(self)  # Console observa cambios de dispositivos
+        self.device_discovery.start_discovery()
+        
+        # Inicializar servicio de mensajes
+        self.message_service = MessageService(self.socket_manager)
+        self.socket_manager.attach(self.message_service)  # MessageService observa tramas
+        self.message_service.attach(self)  # Console observa mensajes recibidos
+        
+        # Inicializar servicio de archivos
+        self.file_service = FileTransferService(self.socket_manager)
+        self.socket_manager.attach(self.file_service)  # FileService observa tramas
+        self.file_service.attach(self)  # Console observa archivos recibidos
+        self.is_running = True
+        
+        print("✅ Componentes inicializados correctamente")
+        print(f"📡 MAC local: {self.socket_manager.local_mac}")
+        print()
+        
+        return True
             
-            # Inicializar socket manager
-            self.socket_manager = raw_socket_manager(interface)
-            self.socket_manager.start_reciving()
-               
-            # Inicializar descubrimiento de dispositivos
-            self.device_discovery = DeviceDiscovery(self.socket_manager)
-            self.device_discovery.attach(self)  # Console observa cambios de dispositivos
-            self.device_discovery.start_discovery()
-            
-            # Inicializar servicio de mensajes
-            self.message_service = MessageService(self.socket_manager)
-            self.socket_manager.attach(self.message_service)  # MessageService observa tramas
-            self.message_service.attach(self)  # Console observa mensajes recibidos
-            
-            # Inicializar servicio de archivos
-            self.file_service = FileTransferService(self.socket_manager)
-            self.socket_manager.attach(self.file_service)  # FileService observa tramas
-            self.file_service.attach(self)  # Console observa archivos recibidos
-
-            self.is_running = True
-            
-            print("✅ Componentes inicializados correctamente")
-            print(f"📡 MAC local: {self.socket_manager.local_mac}")
-            print()
-            
-            return True
-            
-        except Exception as e:
-            log_message("INFO", "Error inicializando componentes")
+        #except Exception as e:
+        #    log_message("INFO", "Error inicializando componentes")
     
     # Observer pattern implementation
     def update(self, data) -> None:

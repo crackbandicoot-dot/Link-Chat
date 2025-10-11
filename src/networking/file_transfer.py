@@ -63,7 +63,7 @@ class FileTransferService(Subject[File],Observer[LinkChatFrame]):
          file_info =File(file_name)
          serialized_info =BinarySerializer.serialize(file_info)
          while not self.confirmed_frame:
-             self.socket_manager.send_frame(LinkChatFrame(target_mac, self.socket_manager.get_self_mac(), MSG_TYPE_FILE_START, 0, serialized_info))
+             self.socket_manager.send_frame(LinkChatFrame(target_mac, self.socket_manager.get_local_mac(), MSG_TYPE_FILE_START, 0, serialized_info))
          self.confirmed_frame = False
          chunks = self.split_chunks(file_path)
 
@@ -74,12 +74,12 @@ class FileTransferService(Subject[File],Observer[LinkChatFrame]):
              chunk_id+=1
              while not self.confirmed_frame:
                  self.socket_manager.send_frame(
-                     LinkChatFrame(target_mac, self.socket_manager.get_self_mac(), MSG_TYPE_FILE_CHUNK, chunk_id, chunk))
+                     LinkChatFrame(target_mac, self.socket_manager.get_local_mac(), MSG_TYPE_FILE_CHUNK, chunk_id, chunk))
              self.confirmed_frame=False
 
          #send file end message
          while not self.confirmed_frame:
-             self.socket_manager.send_frame((LinkChatFrame(target_mac,self.socket_manager.get_self_mac(),MSG_TYPE_FILE_END,chunk_id+1,b' ')))
+             self.socket_manager.send_frame((LinkChatFrame(target_mac,self.socket_manager.get_local_mac(),MSG_TYPE_FILE_END,chunk_id+1,b' ')))
 
     def attach(self, observer: Observer[File]) -> None:
         self.observers.add(observer)
