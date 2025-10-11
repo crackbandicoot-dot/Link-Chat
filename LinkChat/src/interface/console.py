@@ -3,12 +3,12 @@ import sys
 import threading
 import time
 from typing import Optional, List, Dict
-from utils.helpers import log_message, get_network_interfaces, format_file_size
-from utils.constants import *
+from ..utils.helpers import log_message, get_network_interfaces, format_file_size
+from ..utils.constants import *
 from LinkChat.src.core.raw_socket_manager import raw_socket_manager
-from networking.discovery import DeviceDiscovery
-from networking.messaging import MessageManager
-from networking.file_transfer import FileTransferManager
+from ..networking.discovery import DeviceDiscovery
+from ..networking.messaging import MessageManager
+from ..networking.file_transfer import FileTransferManager
 
 
 class ConsoleInterface:

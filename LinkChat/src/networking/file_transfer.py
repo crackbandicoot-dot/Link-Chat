@@ -6,21 +6,22 @@ from ..observer.observer import Observer, T
 from ..observer.subject import Subject
 from ..core.raw_socket_manager import raw_socket_manager
 from  ..core.frame import LinkChatFrame
-from ..DTOS.File import File
+from ..DTOS.file import File
 from ..utils.constants import MAX_CHUNK_SIZE,MSG_TYPE_FILE_START,MSG_TYPE_FILE_CHUNK,MSG_TYPE_FILE_END,MSG_TYPE_MESSAGE_ACK,DOWNLOADS_PATH
 from  ..utils.binary_serializer import BinarySerializer
-from file_info import FileInfo
+from ..DTOS.file import  File
 
 
 
 
 
 class FileTransferService(Subject[File],Observer[LinkChatFrame]):
-    def __init__(self):
+    def __init__(self,socket_manager:raw_socket_manager):
         self.observers = set()
         self.confirmed_frame = False
         self.recived_chunks = []
         self.recived_file_name = None
+        self.socket_manager =socket_manager
 
     def attach(self, observer: Observer[File]) -> None:
         self.observers.add(observer)
@@ -56,8 +57,6 @@ class FileTransferService(Subject[File],Observer[LinkChatFrame]):
     def split_chunks(self, file_path, chunk_size=MAX_CHUNK_SIZE):
 
         chunk_files = []
-        chunk_num = 1
-
         with open(file_path, 'rb') as source_file:
             while True:
                 # Read chunk_size bytes
@@ -72,10 +71,10 @@ class FileTransferService(Subject[File],Observer[LinkChatFrame]):
 
          #Send file start frame
          file_name = Path(file_path).name
-         file_info =FileInfo(file_name)
+         file_info =File(file_name)
          serialized_info =BinarySerializer.serialize(file_info)
          while not self.confirmed_frame:
-             raw_socket_manager.send_frame(LinkChatFrame(target_mac, raw_socket_manager.get_self_mac(), MSG_TYPE_FILE_START, 0, serialized_info))
+             self.socket_manager.send_frame(LinkChatFrame(target_mac, raw_socket_manager.get_self_mac(), MSG_TYPE_FILE_START, 0, serialized_info))
          self.confirmed_frame = False
          chunks = self.split_chunks(file_path)
 
@@ -85,13 +84,13 @@ class FileTransferService(Subject[File],Observer[LinkChatFrame]):
          for chunk in chunks:
              chunk_id+=1
              while not self.confirmed_frame:
-                 raw_socket_manager.send_frame(
+                 self.socket_manager.send_frame(
                      LinkChatFrame(target_mac, raw_socket_manager.get_self_mac(), MSG_TYPE_FILE_CHUNK, chunk_id, chunk))
              self.confirmed_frame=False
 
          #send file end message
          while not self.confirmed_frame:
-             raw_socket_manager.send_frame((LinkChatFrame(target_mac,raw_socket_manager.get_self_mac(),MSG_TYPE_FILE_END,chunk_id+1,b' ')))
+             self.socket_manager.send_frame((LinkChatFrame(target_mac,raw_socket_manager.get_self_mac(),MSG_TYPE_FILE_END,chunk_id+1,b' ')))
 
 
 

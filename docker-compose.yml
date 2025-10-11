@@ -1,0 +1,22 @@
+services:
+  app1:
+    build: .
+    networks:
+      - chatnet
+    cap_add:
+      - NET_ADMIN
+      - SYS_NICE
+    container_name: app1
+
+  app2:
+    build: .
+    networks:
+      - chatnet
+    cap_add:
+      - NET_ADMIN
+      - SYS_NICE
+    container_name: app2
+
+networks:
+  chatnet:
+    driver: bridge

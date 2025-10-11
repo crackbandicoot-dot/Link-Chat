@@ -1,7 +1,7 @@
 import struct
 from typing import Optional
-from utils.constants import ETHERTYPE_LINKCHAT, PROTOCOL_VERSION
-from utils.helpers import format_mac_address, parse_mac_address
+from ..utils.constants import ETHERTYPE_LINKCHAT, PROTOCOL_VERSION
+from ..utils.helpers import format_mac_address, parse_mac_address
 
 
 class LinkChatFrame:

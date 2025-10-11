@@ -6,18 +6,19 @@ from ..core.frame import LinkChatFrame
 from ..core.raw_socket_manager import raw_socket_manager
 from ..observer.subject import Subject, T
 from ..utils.constants import MSG_TYPE_MESSAGE,MSG_TYPE_MESSAGE_ACK,MAX_RETRIES     # Acknowledgment de mensaje
-from ..DTOS.Message import Message
+from ..DTOS.message import Message
 
 class MessageService(Observer[LinkChatFrame],Subject[Message]):
-     def __init__(self):
+     def __init__(self,socket_manager:raw_socket_manager):
          self.observers = set()
          self.confirmed_message = False
-    #Observer implementation
+         self.socket = socket_manager
+     #Observer implementation
      def update(self, data: LinkChatFrame) -> None:
          if data.msg_type == MSG_TYPE_MESSAGE:
              message_text = data.data.decode('utf-8')
              message = Message(message_text,data.src_mac)
-             raw_socket_manager.send_frame(LinkChatFrame(data.src_mac,raw_socket_manager.get_self_mac(),MSG_TYPE_MESSAGE_ACK,0,b''))
+             self.socket_manager.send_frame(LinkChatFrame(data.src_mac,raw_socket_manager.get_self_mac(),MSG_TYPE_MESSAGE_ACK,0,b''))
              self.notify(message)
 
          if data.msg_type == MSG_TYPE_MESSAGE_ACK:
@@ -43,7 +44,7 @@ class MessageService(Observer[LinkChatFrame],Subject[Message]):
         #Retry sending
         attempts = 0
         while not self.confirmed_message and attempts<MAX_RETRIES:
-            raw_socket_manager.send_frame(frame)
+            self.socket_manager.send_frame(frame)
             await asyncio.sleep(1) 
             attempts+=1
     
