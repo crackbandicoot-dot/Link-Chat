@@ -40,9 +40,15 @@ def get_network_interfaces() -> List[str]:
     try: 
         if platform.system() == "Windows":
             # Windows: Usar psutil o WMI
-            import psutil
-            for interface_name, _ in psutil.net_if_addrs().items():
-                interfaces.append(interface_name)
+            try:
+                import psutil
+                print("DEBUG: psutil imported successfully")
+                for interface_name, _ in psutil.net_if_addrs().items():
+                    interfaces.append(interface_name)
+            except ImportError as e:
+                print(f"ERROR: Failed to import psutil: {e}")
+                print("DEBUG: psutil is not installed. Install it with: pip install psutil")
+                raise ImportError("psutil is required but not installed")
         else:
             # Usar ioctl para obtener interfaces (Unix/Linux only)
             if fcntl is None:
