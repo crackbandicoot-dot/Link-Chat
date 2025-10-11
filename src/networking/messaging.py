@@ -16,8 +16,9 @@ class MessageService(Observer[LinkChatFrame],Subject[Message], ):
    
      async def send_message(self,target_mac:str,message:str)->bool:
         #Try send message
+        
         message_bytes = message.encode('utf-8')
-        frame = LinkChatFrame(target_mac,raw_socket_manager.get_local_mac(),MSG_TYPE_MESSAGE,0,message_bytes)
+        frame = LinkChatFrame(target_mac,self.socket_manager.get_local_mac(),MSG_TYPE_MESSAGE,0,message_bytes)
 
         #Retry sending
         attempts = 0
@@ -25,6 +26,7 @@ class MessageService(Observer[LinkChatFrame],Subject[Message], ):
             self.socket_manager.send_frame(frame)
             await asyncio.sleep(1) 
             attempts+=1
+        return True
     
         
      #Observer implementation

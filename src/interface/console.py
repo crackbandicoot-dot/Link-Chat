@@ -140,7 +140,7 @@ class ConsoleInterface(Observer):
         self.is_running = True
         
         print("✅ Componentes inicializados correctamente")
-        print(f"📡 MAC local: {self.socket_manager.local_mac}")
+        print(f"📡 MAC local: {self.socket_manager.get_local_mac()}")
         print()
         
         return True
@@ -236,7 +236,6 @@ class ConsoleInterface(Observer):
         print("2. Transferencia de Archivos")
         print("3. Dispositivos Descubiertos")
         print("4. Informacion de Red")
-        print("5. Configuracion")
         print("0. Salir")
         print("="*50)
         
@@ -244,8 +243,7 @@ class ConsoleInterface(Observer):
         device_count = len(self.device_discovery.discovered_devices) if self.device_discovery else 0
         print(f"\n📊 Estado: {device_count} dispositivos descubiertos")
         
-        if self.socket_manager and self.socket_manager.local_mac:
-            print(f"📡 MAC local: {self.socket_manager.local_mac}")
+       
     
     def messaging_menu(self) -> None:
         """Menú de mensajería"""
@@ -286,7 +284,7 @@ class ConsoleInterface(Observer):
             print()
             
             print("1. 📤 Enviar archivo")
-            print("2. 📥 Ver transferencias en progreso")
+            print("2. 📥 Ver historial de transferencias")
             print("0. ⬅️  Volver al menú principal")
             print()
             
@@ -295,7 +293,7 @@ class ConsoleInterface(Observer):
             if choice == "1":
                 self.send_file()
             elif choice == "2":
-                self.show_transfer_progress()
+                self.show_transfer_historial()
             elif choice == "0":
                 break
             else:
@@ -339,7 +337,7 @@ class ConsoleInterface(Observer):
         
         if self.socket_manager:
             print(f"🔌 Interfaz: {self.socket_manager.interface}")
-            print(f"📡 MAC local: {self.socket_manager.local_mac}")
+            print(f"📡 MAC local: {self.socket_manager.get_local_mac()}")
             print(f"🌐 Protocolo: Link-Chat v{PROTOCOL_VERSION}")
             print(f"🔢 EtherType: 0x{ETHERTYPE_LINKCHAT:04X}")
         
