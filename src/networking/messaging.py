@@ -16,15 +16,19 @@ class MessageService(Observer[LinkChatFrame],Subject[Message], ):
    
      async def send_message(self,target_mac:str,message:str)->bool:
         #Try send message
+        
         message_bytes = message.encode('utf-8')
-        frame = LinkChatFrame(target_mac,raw_socket_manager.get_local_mac(),MSG_TYPE_MESSAGE,0,message_bytes)
+        frame = LinkChatFrame(target_mac,self.socket_manager.get_local_mac(),MSG_TYPE_MESSAGE,0,message_bytes)
 
         #Retry sending
         attempts = 0
         while not self.confirmed_message and attempts<MAX_RETRIES:
             self.socket_manager.send_frame(frame)
-            await asyncio.sleep(1) 
+            await asyncio.sleep(0.1)
+            print("Retring messanging")
             attempts+=1
+        print("Message actually send it")
+        return True
     
         
      #Observer implementation
@@ -47,8 +51,9 @@ class MessageService(Observer[LinkChatFrame],Subject[Message], ):
          self.observers.remove(observer)
 
      def notify(self,notification: Message) -> None:
+         print("Mensaje recibido!!!!!!!!")
          for observer in self.observers:
-             observer.update(self,notification)
+             observer.update(notification)
 
 
 

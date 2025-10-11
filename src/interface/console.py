@@ -140,7 +140,7 @@ class ConsoleInterface(Observer):
         self.is_running = True
         
         print("✅ Componentes inicializados correctamente")
-        print(f"📡 MAC local: {self.socket_manager.get_get_local_mac()()}")
+        print(f"📡 MAC local: {self.socket_manager.get_local_mac()}")
         print()
         
         return True
@@ -148,6 +148,7 @@ class ConsoleInterface(Observer):
         #except Exception as e:
         #    log_message("INFO", "Error inicializando componentes")
     
+        
     # Observer pattern implementation
     def update(self, data) -> None:
         """
@@ -243,8 +244,7 @@ class ConsoleInterface(Observer):
         device_count = len(self.device_discovery.discovered_devices) if self.device_discovery else 0
         print(f"\n📊 Estado: {device_count} dispositivos descubiertos")
         
-        if self.socket_manager and self.socket_manager.get_local_mac():
-            print(f"📡 MAC local: {self.socket_manager.get_local_mac()}")
+       
     
     def messaging_menu(self) -> None:
         """Menú de mensajería"""
@@ -285,7 +285,7 @@ class ConsoleInterface(Observer):
             print()
             
             print("1. 📤 Enviar archivo")
-            print("2. 📥 Ver transferencias en progreso")
+            print("2. 📥 Ver historial de transferencias")
             print("0. ⬅️  Volver al menú principal")
             print()
             

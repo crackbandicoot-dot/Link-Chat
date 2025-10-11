@@ -7,7 +7,7 @@ from .frame import LinkChatFrame
 from ..observer.subject import Subject
 from ..observer.observer import Observer
 from ..utils.constants import ETHERTYPE_LINKCHAT,BUFFER_SIZE
-
+from ..utils.helpers import format_mac_address
 class raw_socket_manager(Subject[LinkChatFrame]):
     """
     A wrapper class for a raw socket to send and receive LinkChatFrame objects.
@@ -37,12 +37,13 @@ class raw_socket_manager(Subject[LinkChatFrame]):
             print("This operation typically requires root privileges (e.g., 'sudo python your_script.py')")
             raise
 
-        self._self_mac = self.sock.getsockname()[4]
+        self._self_mac = format_mac_address(self.sock.getsockname()[4])
         self._observers: List[Observer[LinkChatFrame]] = []
         self._observer_lock = threading.Lock()
 
         self._is_receiving = False
         self._receive_thread: threading.Thread = None
+        self.interface = interface_name
 
     def send_frame(self, frame_to_send: LinkChatFrame) -> bool:
         """
