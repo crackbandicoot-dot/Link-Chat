@@ -192,22 +192,7 @@ class ConsoleInterface(Observer):
         else:
             print(f"\n{message}")
             print("Presione Enter para continuar...")
-    
-    def safe_input(self, prompt: str) -> str:
-        """Input that blocks notifications"""
-        self.waiting_for_input = True
-        
-        try:
-            result = input(prompt)
-        finally:
-            self.waiting_for_input = False
-            if self.pending_notifications:
-                print(f"\n📱 {len(self.pending_notifications)} notificaciones:")
-                for notification in self.pending_notifications:
-                    print(f"  {notification}")
-                self.pending_notifications.clear()
-                    
-        return result
+
     
     def shutdown(self) -> None:
         """Close application cleanly"""
@@ -225,4 +210,3 @@ class ConsoleInterface(Observer):
         
         print("✅ Link-Chat cerrado correctamente")
         sys.exit(0)
-
