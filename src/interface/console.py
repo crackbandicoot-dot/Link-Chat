@@ -29,7 +29,6 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
         self.file_service = None
         self.is_running = False
         self.input_thread = None
-        self.discovered_devices = {}
         self.received_messages = []
         self.received_files = []
         self.display_lock = threading.Lock()  # Para thread-safe console updates
@@ -171,20 +170,16 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
                 self._handle_file_update(data)
     
     def _handle_device_update(self, device_data: Dict) -> None:
-        """Maneja actualizaciones de dispositivos"""
+        """Maneja actualizaciones de dispositivos - SIMPLIFICADO"""
         mac = device_data['mac']
-        info = device_data['info']
         action = device_data['action']
         
+        # ✅ Solo mostrar notificaciones, no duplicar datos
         if action == 'discovered':
-            self.discovered_devices[mac] = info
             self._show_notification(f"🔍 Nuevo dispositivo descubierto: {mac}")
-        elif action == 'updated':
-            self.discovered_devices[mac] = info
         elif action == 'disconnected':
-            if mac in self.discovered_devices:
-                self.discovered_devices[mac]['active'] = False
             self._show_notification(f"📴 Dispositivo desconectado: {mac}")
+        # 'updated' actions no necesitan notificación en consola
     
     def _handle_message_update(self, message: Message) -> None:
         """Maneja mensajes recibidos"""
@@ -217,8 +212,6 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
                     self.show_discovered_devices()
                 elif choice == "4":
                     self.show_network_info()
-                elif choice == "5":
-                    self.settings_menu()
                 elif choice == "0":
                     self.shutdown()
                     break
@@ -250,7 +243,7 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
         print("╚" + "="*50 + "╝")
         
         # Mostrar estado
-        device_count = len(self.discovered_devices)
+        device_count = len(self.device_discovery.discovered_devices) if self.device_discovery else 0
         print(f"\n📊 Estado: {device_count} dispositivos descubiertos")
         
         if self.socket_manager and self.socket_manager.local_mac:
@@ -296,7 +289,6 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
             
             print("1. 📤 Enviar archivo")
             print("2. 📥 Ver transferencias en progreso")
-            print("3. 📋 Historial de transferencias")
             print("0. ⬅️  Volver al menú principal")
             print()
             
@@ -306,8 +298,6 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
                 self.send_file()
             elif choice == "2":
                 self.show_transfer_progress()
-            elif choice == "3":
-                self.show_transfer_history()
             elif choice == "0":
                 break
             else:
@@ -315,21 +305,23 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
                 time.sleep(1)
     
     def show_discovered_devices(self) -> None:
-        """Muestra los dispositivos descubiertos"""
+        """Muestra los dispositivos descubiertos - USA DeviceDiscovery"""
         os.system('cls' if os.name == 'nt' else 'clear')
         print("╔" + "="*50 + "╗")
         print("║           DISPOSITIVOS DESCUBIERTOS           ║")
         print("╚" + "="*50 + "╝")
         print()
         
-        if not self.discovered_devices:
+        # ✅ Obtener datos desde DeviceDiscovery (fuente única)
+        if not self.device_discovery or not self.device_discovery.discovered_devices:
             print("🔍 No se han descubierto dispositivos aún...")
             print("   El descubrimiento automático está en progreso.")
         else:
-            print(f"📱 {len(self.discovered_devices)} dispositivos encontrados:")
+            devices = self.device_discovery.discovered_devices
+            print(f"📱 {len(devices)} dispositivos encontrados:")
             print()
             
-            for i, (mac, info) in enumerate(self.discovered_devices.items(), 1):
+            for i, (mac, info) in enumerate(devices.items(), 1):
                 status = "🟢 Activo" if info.get('active', False) else "🔴 Inactivo"
                 last_seen = info.get('last_seen', 'Desconocido')
                 print(f"  {i}. MAC: {mac}")
@@ -353,33 +345,21 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
             print(f"🌐 Protocolo: Link-Chat v{PROTOCOL_VERSION}")
             print(f"🔢 EtherType: 0x{ETHERTYPE_LINKCHAT:04X}")
         
-        print()
-        print("📊 Estadísticas:")
-        # Aquí se pueden agregar estadísticas de red
-        print("   - Mensajes enviados: N/A")
-        print("   - Mensajes recibidos: N/A")
-        print("   - Archivos transferidos: N/A")
-        
+        print()  
         input("\nPresione Enter para continuar...")
     
-    def settings_menu(self) -> None:
-        """Menú de configuración"""
-        print("⚙️ Configuración - En desarrollo...")
-        time.sleep(2)
-    
     def send_message_to_device(self) -> None:
-        """Envía un mensaje a un dispositivo específico"""
-        if not self.discovered_devices:
+        """Envía un mensaje a un dispositivo específico - USA DeviceDiscovery"""
+        if not self.device_discovery or not self.device_discovery.discovered_devices:
             print("❌ No hay dispositivos descubiertos para enviar mensajes.")
             input("Presione Enter para continuar...")
             return
+        devices = list(self.device_discovery.discovered_devices.keys())
         
         # Mostrar dispositivos disponibles
         print("📱 Dispositivos disponibles:")
-        devices = list(self.discovered_devices.keys())
-        
         for i, mac in enumerate(devices, 1):
-            info = self.discovered_devices[mac]
+            info = self.device_discovery.discovered_devices[mac]
             status = "🟢" if info.get('active', False) else "🔴"
             print(f"  {i}. {mac} {status}")
         
@@ -415,21 +395,19 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
         
         if message.strip():
             import asyncio
-            # Enviar a todos los dispositivos descubiertos
-            success_count = 0
-            for mac in self.discovered_devices.keys():
-                if asyncio.run(self.message_service.send_message(mac, message)):
-                    success_count += 1
-            
-            print(f"✅ Mensaje enviado a {success_count} dispositivos")
+            if asyncio.run(self.message_service.send_message(BROADCAST_MAC, message)):
+                print(f"✅ Mensaje enviado")
+            else:
+                print("❌ Error enviando mensaje broadcast")
         else:
             print("❌ Mensaje vacío")
         
         input("Presione Enter para continuar...")
     
     def send_file(self) -> None:
-        """Envía un archivo a un dispositivo"""
-        if not self.discovered_devices:
+        """Envía un archivo a un dispositivo - USA DeviceDiscovery"""
+        # ✅ Obtener devices desde DeviceDiscovery
+        if not self.device_discovery or not self.device_discovery.discovered_devices:
             print("❌ No hay dispositivos descubiertos.")
             input("Presione Enter para continuar...")
             return
@@ -452,12 +430,13 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
         print(f"📁 Archivo: {os.path.basename(filepath)}")
         print(f"📏 Tamaño: {format_file_size(file_size)}")
         
+        # ✅ Usar DeviceDiscovery como fuente única
+        devices = list(self.device_discovery.discovered_devices.keys())
+        
         # Seleccionar dispositivo destino
         print("\n📱 Dispositivos disponibles:")
-        devices = list(self.discovered_devices.keys())
-        
         for i, mac in enumerate(devices, 1):
-            info = self.discovered_devices[mac]
+            info = self.device_discovery.discovered_devices[mac]
             status = "🟢" if info.get('active', False) else "🔴"
             print(f"  {i}. {mac} {status}")
         
@@ -507,8 +486,8 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
         
         input("Presione Enter para continuar...")
     
-    def show_transfer_progress(self) -> None:
-        """Muestra el progreso de transferencias"""
+    def show_transfer_historial(self) -> None:
+        """Muestra el historial de transferencias"""
         os.system('cls' if os.name == 'nt' else 'clear')
         print("╔" + "="*50 + "╗")
         print("║        ARCHIVOS RECIBIDOS                     ║")
@@ -527,11 +506,6 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
         
         input("Presione Enter para continuar...")
     
-    def show_transfer_history(self) -> None:
-        """Muestra el historial de transferencias"""
-        self.show_transfer_progress()  # Por ahora, mostrar lo mismo
-    
-
     def shutdown(self) -> None:
         """Cierra la aplicación limpiamente"""
         print("\n� Cerrando Link-Chat...")
@@ -544,8 +518,7 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
         
         # Cerrar socket manager
         if self.socket_manager:
-            if hasattr(self.socket_manager, 'close_socket'):
-                self.socket_manager.close_socket()
+            self.socket_manager.close_socket()
         
         print("✅ Link-Chat cerrado correctamente")
         sys.exit(0)

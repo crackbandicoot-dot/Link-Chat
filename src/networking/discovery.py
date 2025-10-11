@@ -211,8 +211,6 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
         
         return active_devices
     
-    
-    
     # Observer[LinkChatFrame] implementation
     def update(self, frame: LinkChatFrame) -> None:
         self._handle_frame(frame)
@@ -227,16 +225,16 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
         try:
             # Procesar según el tipo de mensaje
             if frame.msg_type == MSG_TYPE_DISCOVERY:
-                self._handle_discovery_request(frame.src_mac, frame)
+                self._handle_discovery_request(frame)
             elif frame.msg_type == MSG_TYPE_DISCOVERY_REPLY:
-                self._handle_discovery_reply(frame.src_mac, frame)
+                self._handle_discovery_reply(frame)
             elif frame.msg_type == MSG_TYPE_HEARTBEAT:
-                self._handle_heartbeat(frame.src_mac, frame)
+                self._handle_heartbeat(frame)
                 
         except Exception as e:
             log_message("ERROR", f"Error procesando trama de descubrimiento: {e}")
     
-    def _handle_discovery_request(self, src_mac: str, frame: LinkChatFrame) -> None:
+    def _handle_discovery_request(self, frame: LinkChatFrame) -> None:
         """
         Maneja solicitudes de descubrimiento
         
@@ -244,25 +242,23 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
             src_mac: MAC del dispositivo que solicita
             frame: Trama Link-Chat recibida
         """
-        try:
-            data = json.loads(frame.data.decode('utf-8'))
-            
-            log_message("INFO", f"Solicitud de descubrimiento de {src_mac}")
+        try:            
+            log_message("INFO", f"Solicitud de descubrimiento de {frame.src_mac}")
             
             # Agregar dispositivo a la lista
-            self._add_device(src_mac, {
+            self._add_device(frame.src_mac, {
                 "type": "discovery_request",
                 "last_seen": get_timestamp(),
                 "active": True
             })
             
             # Enviar respuesta
-            self.send_discovery_reply(src_mac)
+            self.send_discovery_reply(frame.src_mac)
             
         except Exception as e:
             log_message("ERROR", f"Error procesando solicitud de descubrimiento: {e}")
     
-    def _handle_discovery_reply(self, src_mac: str, frame: LinkChatFrame) -> None:
+    def _handle_discovery_reply(self, frame: LinkChatFrame) -> None:
         """
         Maneja respuestas de descubrimiento
         
@@ -270,13 +266,11 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
             src_mac: MAC del dispositivo que responde
             frame: Trama Link-Chat recibida
         """
-        try:
-            data = json.loads(frame.data.decode('utf-8'))
-            
-            log_message("INFO", f"Respuesta de descubrimiento de {src_mac}")
+        try:       
+            log_message("INFO", f"Respuesta de descubrimiento de {frame.src_mac}")
             
             # Agregar dispositivo a la lista
-            self._add_device(src_mac, {
+            self._add_device(frame.src_mac, {
                 "type": "discovery_reply",
                 "last_seen": get_timestamp(),
                 "active": True
@@ -285,7 +279,7 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
         except Exception as e:
             log_message("ERROR", f"Error procesando respuesta de descubrimiento: {e}")
     
-    def _handle_heartbeat(self, src_mac: str, frame: LinkChatFrame) -> None:
+    def _handle_heartbeat(self, frame: LinkChatFrame) -> None:
         """
         Maneja mensajes de heartbeat
         
@@ -295,11 +289,11 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
         """
         try:
             # Actualizar última vez visto
-            if src_mac in self.discovered_devices:
-                self.discovered_devices[src_mac]['last_seen'] = get_timestamp()
-                self.discovered_devices[src_mac]['active'] = True
+            if frame.src_mac in self.discovered_devices:
+                self.discovered_devices[frame.src_mac]['last_seen'] = get_timestamp()
+                self.discovered_devices[frame.src_mac]['active'] = True
                 
-                log_message("DEBUG", f"Heartbeat recibido de {src_mac}")
+                log_message("DEBUG", f"Heartbeat recibido de {frame.src_mac}")
             
         except Exception as e:
             log_message("ERROR", f"Error procesando heartbeat: {e}")
