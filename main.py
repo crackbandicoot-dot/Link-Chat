@@ -8,12 +8,12 @@ import sys
 import os
 
 # Agregar src al path para imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'LinkChat', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'Link-Chat-main', 'src'))
 
 def main():
     """Función principal de Link-Chat"""
     try:
-        from interface.console import ConsoleInterface
+        from src.interface.console import ConsoleInterface
         
         print("🚀 Iniciando Link-Chat...")
         print("=" * 50)

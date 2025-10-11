@@ -11,8 +11,8 @@ from networking.discovery import DeviceDiscovery
 from networking.messaging import MessageService
 from networking.file_transfer import FileTransferService
 from observer.observer import Observer
-from DTOS.Message import Message
-from DTOS.File import File
+from DTOS.message import Message
+from DTOS.file import File
 
 
 class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
@@ -550,20 +550,3 @@ class ConsoleInterface(Observer[Dict], Observer[Message], Observer[File]):
         print("✅ Link-Chat cerrado correctamente")
         sys.exit(0)
 
-
-def main():
-    """Función principal para ejecutar Link-Chat"""
-    try:
-        console = ConsoleInterface()
-        console.start()
-        console.main_menu()
-    except KeyboardInterrupt:
-        print("\n👋 Link-Chat cerrado por el usuario")
-        sys.exit(0)
-    except Exception as e:
-        print(f"❌ Error fatal: {e}")
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
