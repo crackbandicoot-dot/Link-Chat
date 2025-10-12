@@ -268,6 +268,7 @@ class ConsoleInterface(Observer):
             if choice == "1":
                 self.send_message_to_device()
             elif choice == "2":
+
                 self.send_broadcast_message()
             elif choice == "3":
                 self.show_received_messages()

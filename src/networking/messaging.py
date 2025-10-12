@@ -45,12 +45,11 @@ class MessageService(Observer[LinkChatFrame], Subject[Message]):
         self.send_queue: Queue[Tuple[str, str]] = Queue()
         self.sending_thread: Optional[threading.Thread] = None
         self.running = False
-        self.thread_lock = threading.Lock()
+        
         
         # Message tracking with unique IDs
         self.pending_messages: Dict[int, PendingMessage] = {}
         self.message_id_counter = 0
-        self.message_lock = threading.Lock()
         
         # Configuration
         self.retry_interval = 0.5  # seconds between retries
@@ -63,49 +62,48 @@ class MessageService(Observer[LinkChatFrame], Subject[Message]):
         Returns:
             int: ID único del mensaje
         """
-        with self.message_lock:
-            self.message_id_counter += 1
-            # Wrap around at 32-bit limit to fit in msg_id field
-            if self.message_id_counter > 0xFFFFFFFF:
-                self.message_id_counter = 1
-            return self.message_id_counter
+        
+        self.message_id_counter += 1
+        # Wrap around at 32-bit limit to fit in msg_id field
+        if self.message_id_counter > 0xFFFFFFFF:
+            self.message_id_counter = 1
+        return self.message_id_counter
     
     def start(self) -> None:
         """
         Inicia el thread de envío de mensajes
         """
-        with self.thread_lock:
-            if self.running:
-                print("MessageService: Thread already running")
-                return
-            
-            self.running = True
-            self.sending_thread = threading.Thread(
-                target=self._sending_worker,
-                daemon=True,
-                name="MessageSendingThread"
-            )
-            self.sending_thread.start()
-            print("MessageService: Sending thread started")
+    
+        if self.running:
+            print("MessageService: Thread already running")
+            return
+        
+        self.running = True
+        self.sending_thread = threading.Thread(
+            target=self._sending_worker,
+            daemon=True,
+            name="MessageSendingThread"
+        )
+        self.sending_thread.start()
+        print("MessageService: Sending thread started")
     
     def stop(self) -> None:
         """
         Detiene el thread de envío de mensajes de forma segura
         """
-        with self.thread_lock:
-            if not self.running:
-                print("MessageService: Thread not running")
-                return
-            
-            self.running = False
-            
-            # Signal thread to wake up and exit
-            self.send_queue.put(("", ""))  # Sentinel value
-            
-            if self.sending_thread and self.sending_thread.is_alive():
-                self.sending_thread.join(timeout=2.0)
-            
-            print("MessageService: Sending thread stopped")
+        if not self.running:
+            print("MessageService: Thread not running")
+            return
+
+        self.running = False
+
+        # Signal thread to wake up and exit
+        self.send_queue.put(("", ""))  # Sentinel value
+
+        if self.sending_thread and self.sending_thread.is_alive():
+            self.sending_thread.join(timeout=2.0)
+
+        print("MessageService: Sending thread stopped")
     
     def _sending_worker(self) -> None:
         """
@@ -133,7 +131,7 @@ class MessageService(Observer[LinkChatFrame], Subject[Message]):
                 self._process_pending_messages()
                 
                 # Small sleep to prevent CPU spinning
-                time.sleep(0.05)
+                time.sleep(1)
                 
             except Exception as e:
                 print(f"MessageService: Error in sending worker: {e}")
@@ -162,8 +160,8 @@ class MessageService(Observer[LinkChatFrame], Subject[Message]):
         )
         
         # Track pending message
-        with self.message_lock:
-            self.pending_messages[msg_id] = PendingMessage(frame)
+        
+        self.pending_messages[msg_id] = PendingMessage(frame)
         
         # Send immediately
         self._send_frame(msg_id)
@@ -176,28 +174,28 @@ class MessageService(Observer[LinkChatFrame], Subject[Message]):
         current_time = time.time()
         messages_to_remove = []
         
-        with self.message_lock:
-            for msg_id, pending_msg in self.pending_messages.items():
-                # Skip confirmed messages
-                if pending_msg.confirmed:
+    
+        for msg_id, pending_msg in self.pending_messages.items():
+            # Skip confirmed messages
+            if pending_msg.confirmed:
+                messages_to_remove.append(msg_id)
+                continue
+            
+            # Check if message has timed out
+            if current_time - pending_msg.timestamp > self.confirmation_timeout:
+                if pending_msg.attempts >= pending_msg.max_retries:
+                    print(f"MessageService: Message ID {msg_id} failed after {pending_msg.attempts} attempts")
                     messages_to_remove.append(msg_id)
                     continue
                 
-                # Check if message has timed out
-                if current_time - pending_msg.timestamp > self.confirmation_timeout:
-                    if pending_msg.attempts >= pending_msg.max_retries:
-                        print(f"MessageService: Message ID {msg_id} failed after {pending_msg.attempts} attempts")
-                        messages_to_remove.append(msg_id)
-                        continue
-                    
-                    # Retry if enough time has passed since last send
-                    if current_time - pending_msg.last_send_time >= self.retry_interval:
-                        self._send_frame(msg_id)
-        
+                # Retry if enough time has passed since last send
+                if current_time - pending_msg.last_send_time >= self.retry_interval:
+                    self._send_frame(msg_id)
+    
         # Clean up completed/failed messages
-        with self.message_lock:
-            for msg_id in messages_to_remove:
-                del self.pending_messages[msg_id]
+    
+        for msg_id in messages_to_remove:
+            del self.pending_messages[msg_id]
     
     def _send_frame(self, msg_id: int) -> None:
         """
@@ -206,19 +204,19 @@ class MessageService(Observer[LinkChatFrame], Subject[Message]):
         Args:
             msg_id: ID del mensaje a enviar
         """
-        with self.message_lock:
-            if msg_id not in self.pending_messages:
-                return
-            
-            pending_msg = self.pending_messages[msg_id]
-            pending_msg.attempts += 1
-            pending_msg.last_send_time = time.time()
-            
-            try:
-                self.socket_manager.send_frame(pending_msg.frame)
-                print(f"MessageService: Sent message ID {msg_id} (attempt {pending_msg.attempts})")
-            except Exception as e:
-                print(f"MessageService: Error sending message ID {msg_id}: {e}")
+        
+        if msg_id not in self.pending_messages:
+            return
+        
+        pending_msg = self.pending_messages[msg_id]
+        pending_msg.attempts += 1
+        pending_msg.last_send_time = time.time()
+        
+        try:
+            self.socket_manager.send_frame(pending_msg.frame)
+            print(f"MessageService: Sent message ID {msg_id} (attempt {pending_msg.attempts})")
+        except Exception as e:
+            print(f"MessageService: Error sending message ID {msg_id}: {e}")
     
     def send_message(self, target_mac: str, message: str) -> bool:
         """
@@ -319,8 +317,8 @@ class MessageService(Observer[LinkChatFrame], Subject[Message]):
         Returns:
             int: Número de mensajes pendientes
         """
-        with self.message_lock:
-            return len(self.pending_messages)
+        
+        return len(self.pending_messages)
     
     def is_running(self) -> bool:
         """

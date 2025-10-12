@@ -26,7 +26,7 @@ class FileTransferService(Subject[File],Observer[LinkChatFrame]):
         
         # Receiving state - support multiple concurrent file transfers
         self._receiving_files: Dict[str, Dict] = {}  # key: file_id (src_mac + file_name)
-        self._lock = threading.Lock()
+        
 
 
     def start(self):
@@ -125,30 +125,30 @@ class FileTransferService(Subject[File],Observer[LinkChatFrame]):
     
     def _save_file(self, file_id: str):
         """Save received file to disk"""
-        with self._lock:
-            if file_id not in self._receiving_files:
-                return
+
+        if file_id not in self._receiving_files:
+            return
+        
+        file_data = self._receiving_files[file_id]
+        file_name = file_data['file_name']
+        chunks = file_data['chunks']
+        
+        try:
+            output_path = Path(DOWNLOADS_PATH) / file_name
+            output_path.parent.mkdir(parents=True, exist_ok=True)
             
-            file_data = self._receiving_files[file_id]
-            file_name = file_data['file_name']
-            chunks = file_data['chunks']
+            with open(output_path, 'wb') as output_file:
+                for chunk in chunks:
+                    output_file.write(chunk)
             
-            try:
-                output_path = Path(DOWNLOADS_PATH) / file_name
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                
-                with open(output_path, 'wb') as output_file:
-                    for chunk in chunks:
-                        output_file.write(chunk)
-                
-                # Notify observers
-                self.notify(File(file_name))
-                
-            except Exception as e:
-                print(f"Error saving file {file_name}: {e}")
-            finally:
-                # Clean up
-                del self._receiving_files[file_id]
+            # Notify observers
+            self.notify(File(file_name))
+            
+        except Exception as e:
+            print(f"Error saving file {file_name}: {e}")
+        finally:
+            # Clean up
+            del self._receiving_files[file_id]
 
     def update(self, data: LinkChatFrame) -> None:
         """Handle incoming frames for file transfers"""
@@ -170,22 +170,21 @@ class FileTransferService(Subject[File],Observer[LinkChatFrame]):
                 }
         
         elif data.msg_type == MSG_TYPE_FILE_CHUNK:
-            # Receive file chunk
-            # Find the active file transfer from this source
-            with self._lock:
-                for file_id, file_data in self._receiving_files.items():
-                    if file_data['src_mac'] == data.src_mac:
-                        file_data['chunks'].append(data.data)
-                        break
+        # Receive file chunk
+        # Find the active file transfer from this source
+            for file_id, file_data in self._receiving_files.items():
+                if file_data['src_mac'] == data.src_mac:
+                    file_data['chunks'].append(data.data)
+                    break
         
         elif data.msg_type == MSG_TYPE_FILE_END:
             # File transfer complete
-            with self._lock:
-                # Find and save the completed file
-                for file_id, file_data in list(self._receiving_files.items()):
-                    if file_data['src_mac'] == data.src_mac:
-                        self._save_file(file_id)
-                        break
+            
+            # Find and save the completed file
+            for file_id, file_data in list(self._receiving_files.items()):
+                if file_data['src_mac'] == data.src_mac:
+                    self._save_file(file_id)
+                    break
 
     def split_chunks(self, file_path, chunk_size=MAX_CHUNK_SIZE):
 
