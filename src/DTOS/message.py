@@ -1,4 +1,4 @@
-
+import time
 
 class Message:
     def __init__(self, text: str, sender_mac: str):
@@ -20,3 +20,6 @@ class Message:
     @sender_mac.setter
     def sender_mac(self, value: str):
         self._sender_mac = value
+
+
+

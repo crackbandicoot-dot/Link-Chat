@@ -40,6 +40,8 @@ class raw_socket_manager(Subject[LinkChatFrame]):
         self._self_mac = format_mac_address(self.sock.getsockname()[4])
         self._observers: List[Observer[LinkChatFrame]] = []
         self._observer_lock = threading.Lock()
+        self._socket_lock = threading.Lock()  # Protects socket operations
+        self._state_lock = threading.Lock()   # Protects state variables
 
         self._is_receiving = False
         self._receive_thread: threading.Thread = None
@@ -55,13 +57,14 @@ class raw_socket_manager(Subject[LinkChatFrame]):
         Returns:
             True if sending was successful, False otherwise.
         """
-        try:
-            packed_frame = frame_to_send.to_bytes()
-            self.sock.send(packed_frame)
-            return True
-        except socket.error as e:
-            print(f"Failed to send frame: {e}")
-            return False
+        with self._socket_lock:
+            try:
+                packed_frame = frame_to_send.to_bytes()
+                self.sock.send(packed_frame)
+                return True
+            except socket.error as e:
+                print(f"Failed to send frame: {e}")
+                return False
 
     def receive_frames(self) -> None:
         """
@@ -69,11 +72,21 @@ class raw_socket_manager(Subject[LinkChatFrame]):
         Listens for incoming packets, unpacks them, and notifies observers.
         This method will block until the socket is closed.
         """
-        while self._is_receiving:
+        while True:
+            with self._state_lock:
+                if not self._is_receiving:
+                    break
+            
             try:
                 # Blocking call to receive data
-                raw_packet, _ = self.sock.recvfrom(BUFFER_SIZE)
-                if raw_packet and self._is_receiving:
+                with self._socket_lock:
+                    raw_packet, _ = self.sock.recvfrom(BUFFER_SIZE)
+                
+                with self._state_lock:
+                    if not self._is_receiving:
+                        break
+                
+                if raw_packet:
                     received_frame = LinkChatFrame.from_bytes(raw_packet)
                     self.notify(received_frame)
             except socket.error:
@@ -82,29 +95,39 @@ class raw_socket_manager(Subject[LinkChatFrame]):
 
     def close_socket(self):
         """Closes the socket if it is open."""
-        if self.sock:
-            self.sock.close()
-            self.sock = None
+        with self._socket_lock:
+            if self.sock:
+                self.sock.close()
+                self.sock = None
 
     def start_reciving(self) -> None:
         """Starts the frame receiving thread if it's not already running."""
-        if not self._is_receiving:
-            self._is_receiving = True
-            self._receive_thread = threading.Thread(target=self.receive_frames, daemon=True)
-            self._receive_thread.start()
+        with self._state_lock:
+            if not self._is_receiving:
+                self._is_receiving = True
+                self._receive_thread = threading.Thread(target=self.receive_frames, daemon=True)
+                self._receive_thread.start()
 
     def stop_reciving(self) -> None:
         """Stops the frame receiving thread gracefully."""
-        if self._is_receiving:
+        with self._state_lock:
+            if not self._is_receiving:
+                return
             self._is_receiving = False
-            self.close_socket()  # Unblocks the blocking recvfrom call
-            if self._receive_thread and self._receive_thread.is_alive():
-                self._receive_thread.join()  # Wait for the thread to finish
+            thread_to_join = self._receive_thread
+        
+        self.close_socket()  # Unblocks the blocking recvfrom call
+        
+        if thread_to_join and thread_to_join.is_alive():
+            thread_to_join.join()  # Wait for the thread to finish
+        
+        with self._state_lock:
             self._receive_thread = None
 
     def get_local_mac(self) -> bytes:
         """Returns the MAC address of the interface this socket is bound to."""
-        return self._self_mac
+        with self._state_lock:
+            return self._self_mac
 
     def attach(self, observer: Observer[LinkChatFrame]) -> None:
         """

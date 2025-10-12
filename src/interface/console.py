@@ -130,11 +130,13 @@ class ConsoleInterface(Observer):
         
         # Inicializar servicio de mensajes
         self.message_service = MessageService(self.socket_manager)
+        self.message_service.start()
         self.socket_manager.attach(self.message_service)  # MessageService observa tramas
         self.message_service.attach(self)  # Console observa mensajes recibidos
         
         # Inicializar servicio de archivos
         self.file_service = FileTransferService(self.socket_manager)
+        self.file_service.start()
         self.socket_manager.attach(self.file_service)  # FileService observa tramas
         self.file_service.attach(self)  # Console observa archivos recibidos
         self.is_running = True
@@ -369,7 +371,7 @@ class ConsoleInterface(Observer):
                 if message.strip():
                     # Enviar mensaje usando MessageService
                     import asyncio
-                    success = asyncio.run(self.message_service.send_message(target_mac, message))
+                    success = self.message_service.send_message(target_mac, message)
                     if success:
                         print("✅ Mensaje enviado correctamente")
                     else:
@@ -391,8 +393,7 @@ class ConsoleInterface(Observer):
         message = input("Ingrese el mensaje broadcast: ")
         
         if message.strip():
-            import asyncio
-            if asyncio.run(self.message_service.send_message(BROADCAST_MAC, message)):
+            if self.message_service.send_message(BROADCAST_MAC, message):
                 print(f"✅ Mensaje enviado")
             else:
                 print("❌ Error enviando mensaje broadcast")
@@ -444,12 +445,7 @@ class ConsoleInterface(Observer):
                 
                 print(f"\n📤 Iniciando transferencia a {target_mac}...")
                 try:
-                    success = asyncio.run(self.file_transfer_service.send_file(target_mac, filepath))
-                    
-                    if success:
-                        print("✅ Transferencia iniciada")
-                    else:
-                        print("❌ Error iniciando transferencia")
+                    self.file_transfer_service.send_file(target_mac, filepath)
                 except Exception as e:
                     print(f"❌ Error en transferencia: {e}")
             else:
@@ -516,6 +512,9 @@ class ConsoleInterface(Observer):
         # Cerrar socket manager
         if self.socket_manager:
             self.socket_manager.close_socket()
+        #Cerrar servicio de mensajes
+        if self.message_service:
+            self.message_service.stop()
         
         print("✅ Link-Chat cerrado correctamente")
         sys.exit(0)
