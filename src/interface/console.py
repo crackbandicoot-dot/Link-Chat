@@ -2,13 +2,13 @@ import os
 import sys
 import threading
 import time
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 from ..utils.helpers import log_message, get_network_interfaces
 from ..utils.constants import *
 from ..core.raw_socket_manager import raw_socket_manager
 from ..networking.discovery import DeviceDiscovery
-from ..networking.messaging import MessageService
-from ..networking.file_transfer import FileTransferService
+from ..networking.messaging import MessageManager  
+from ..networking.file_transfer import FileTransferManager 
 from ..observer.observer import Observer
 from ..DTOS.message import Message
 from ..DTOS.file import File
@@ -130,15 +130,16 @@ class ConsoleInterface(Observer):
         self.device_discovery.attach(self)
         self.device_discovery.start_discovery()
         
-        # Initialize message service
-        self.message_service = MessageService(self.socket_manager)
-        self.message_service.start()
-        self.message_service.attach(self)
+        # Initialize message manager
+        self.message_manager = MessageManager(self.socket_manager)
+        self.message_manager.start()
+        self.message_manager.attach(self)  # ConsoleInterface como observer de mensajes
+
+        # Initialize file manager
+        self.file_manager = FileTransferManager(self.socket_manager)
+        self.file_manager.start()
+        self.file_manager.attach(self)  
         
-        # Initialize file service
-        self.file_service = FileTransferService(self.socket_manager)
-        self.socket_manager.attach(self.file_service)
-        self.file_service.attach(self)
         self.is_running = True
         
         print("✅ Componentes inicializados correctamente")
@@ -148,7 +149,7 @@ class ConsoleInterface(Observer):
         return True
         
     # Observer pattern implementation
-    def update(self, data) -> None:
+    def update(self, data: Union[dict, Message, File]) -> None:
         """
         Observer pattern implementation to receive notifications
         from devices, messages and files
@@ -161,7 +162,7 @@ class ConsoleInterface(Observer):
                 self._handle_device_update(data)
             elif isinstance(data, Message):
                 self._handle_message_update(data)
-            elif hasattr(data, 'name') and hasattr(data, 'size'):
+            elif isinstance(data, File):
                 self._handle_file_update(data)
     
     def _handle_device_update(self, device_data: Dict) -> None:
@@ -176,7 +177,7 @@ class ConsoleInterface(Observer):
     
     def _handle_message_update(self, message: Message) -> None:
         """Handle received messages"""
-        self._show_notification(f"💬 Mensaje de {message.sender_mac}: {message.text}")
+        self._show_notification(f"💬 Mensaje de {message.sender_mac}: {message.content}")
     
     def _handle_file_update(self, file: File) -> None:
         """Handle received files"""
@@ -193,23 +194,38 @@ class ConsoleInterface(Observer):
 
     def get_received_messages(self) -> List[Message]:
         """Get last received messages"""
-        if self.message_service:
-            return self.message_service.get_received_messages()
+        if self.message_manager:
+            return self.message_manager.get_received_messages()
         return []
     
     def shutdown(self) -> None:
         """Close application cleanly"""
         print("\n🔄 Cerrando Link-Chat...")
-        
+
         self.is_running = False
-        
-        # Stop services
-        if self.device_discovery:
-            self.device_discovery.stop()
-        
-        # Close socket manager
-        if self.socket_manager:
-            self.socket_manager.close_socket()
-        
-        print("✅ Link-Chat cerrado correctamente")
+
+        try:
+            
+            if self.device_discovery:
+                self.device_discovery.detach(self)  
+                self.device_discovery.stop()
+
+            if self.message_manager: 
+                self.message_manager.detach(self)
+                self.message_manager.stop()
+
+            if self.file_manager:  
+                self.file_manager.detach(self)
+                self.file_manager.stop()
+
+            if self.socket_manager:
+                self.socket_manager.stop_receiving() 
+                self.socket_manager.close_socket()
+
+            print("✅ Link-Chat cerrado correctamente")
+
+        except Exception as e:
+            log_message("ERROR", f"Error durante shutdown: {e}")
+            print(f"⚠️ Error al cerrar: {e}")
+
         sys.exit(0)
