@@ -22,7 +22,7 @@ MSG_TYPE_FILE_CHUNK_ACK = 0x0C #Mensaje de confirmacion de chunk
 # Configuración de transferencia de archivos
 MAX_CHUNK_SIZE = 1400  # Tamaño máximo de fragmento (considerando MTU)
 FILE_TIMEOUT = 30      # Timeout para transferencia de archivos (segundos)
-MAX_RETRIES = 10000        # Máximo número de reintentos
+MAX_RETRIES = 10        # Máximo número de reintentos
 
 # Configuración de red
 DISCOVERY_INTERVAL = 35    # Intervalo de descubrimiento (segundos)

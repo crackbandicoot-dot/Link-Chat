@@ -29,7 +29,6 @@ class ConsoleInterface(Observer):
         self.file_service = None
         self.is_running = False
         self.input_thread = None
-        self.received_messages = []
         self.received_files = []
         self.display_lock = threading.Lock()
         self.waiting_for_input = False
@@ -133,7 +132,7 @@ class ConsoleInterface(Observer):
         
         # Initialize message service
         self.message_service = MessageService(self.socket_manager)
-        self.socket_manager.attach(self.message_service)
+        self.message_service.start()
         self.message_service.attach(self)
         
         # Initialize file service
@@ -160,7 +159,7 @@ class ConsoleInterface(Observer):
         with self.display_lock:
             if isinstance(data, dict) and 'mac' in data:
                 self._handle_device_update(data)
-            elif hasattr(data, 'sender_mac') and hasattr(data, 'text'):
+            elif isinstance(data, Message):
                 self._handle_message_update(data)
             elif hasattr(data, 'name') and hasattr(data, 'size'):
                 self._handle_file_update(data)
@@ -177,8 +176,7 @@ class ConsoleInterface(Observer):
     
     def _handle_message_update(self, message: Message) -> None:
         """Handle received messages"""
-        self.received_messages.append(message)
-        self._show_notification(f"💬 Mensaje de {message.sender_mac}: {message.text[:50]}...")
+        self._show_notification(f"💬 Mensaje de {message.sender_mac}: {message.text}")
     
     def _handle_file_update(self, file: FileInfo) -> None:
         """Handle received files"""
@@ -193,6 +191,11 @@ class ConsoleInterface(Observer):
             print(f"\n{message}")
             print("Presione Enter para continuar...")
 
+    def get_received_messages(self) -> List[Message]:
+        """Get last received messages"""
+        if self.message_service:
+            return self.message_service.get_received_messages()
+        return []
     
     def shutdown(self) -> None:
         """Close application cleanly"""
