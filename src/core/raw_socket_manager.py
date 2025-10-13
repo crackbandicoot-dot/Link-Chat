@@ -86,7 +86,7 @@ class raw_socket_manager(Subject[LinkChatFrame]):
             self.sock.close()
             self.sock = None
 
-    def start_reciving(self) -> None:
+    def start_receiving(self) -> None:
         """Starts the frame receiving thread if it's not already running."""
         if not self._is_receiving:
             self._is_receiving = True

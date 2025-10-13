@@ -137,7 +137,7 @@ class ConsoleInterface(Observer[Union[Dict, Message, FileTransfer]]):
             self.message_manager.attach(self)
 
             
-            self.file_manager = FileTransferManager(self.socket_manager)
+            self.file_manager:FileTransferManager = FileTransferManager(self.socket_manager)
             self.file_manager.start()  
             self.file_manager.attach(self)
 
@@ -190,7 +190,7 @@ class ConsoleInterface(Observer[Union[Dict, Message, FileTransfer]]):
     def _handle_file_update(self, file: FileTransfer) -> None:
         """Handle received files"""
         self.received_files.append(file)
-        self._show_notification(f"📁 Archivo recibido: {file.name}")
+        self._show_notification(f"📁 Archivo recibido: {file.filename}")
     
     def _show_notification(self, message: str) -> None:
         """Show notifications"""

@@ -259,7 +259,7 @@ class MainMenu:
                 target_mac = devices[choice]
                 
                 print(f"\n📤 Iniciando transferencia a {target_mac}...")
-                success = self.console.file_manager.send_file(target_mac, filepath)
+                success = self.console.file_manager.send_file (target_mac, filepath)
                 if success:
                     print("✅ Transferencia iniciada correctamente")
                     print("💡 Puede ver el progreso en las notificaciones")

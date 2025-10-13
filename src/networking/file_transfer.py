@@ -36,7 +36,7 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
         self.is_running = False
         self.transfer_thread = None
         
-        self.observers = {}
+        self.observers = set()
         # Directorio de recepción
         self.download_dir = os.path.join(os.getcwd(), "received_files")
         if not os.path.exists(self.download_dir):
@@ -213,7 +213,6 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
                 transfer.last_activity = get_timestamp()
                 
                 log_message("DEBUG", f"Fragmento {chunk_number}/{transfer.total_chunks} enviado")
-                self._notify_transfer_progress(transfer)
             
             return success
             
@@ -277,10 +276,7 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
             elif frame.msg_type == MSG_TYPE_FILE_CHUNK:
                 self._handle_file_chunk(frame.src_mac, frame)
             elif frame.msg_type == MSG_TYPE_FILE_CHUNK_ACK:
-                self._handle_file_ack(frame.src_mac, frame)
-            elif frame.msg_type == MSG_TYPE_FILE_END:
-                self._handle_file_end(frame.src_mac, frame)
-                
+                self._handle_file_chunk_ack(frame.src_mac, frame)
         except Exception as e:
             log_message("ERROR", f"Error procesando trama de archivo: {e}")
     
@@ -319,7 +315,7 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
             self.active_transfers[transfer_id] = transfer
             
             log_message("INFO", f"Transferencia de archivo aceptada: {filename}")
-            self._notify_transfer_started(transfer)
+            
             
         except Exception as e:
             log_message("ERROR", f"Error procesando inicio de archivo: {e}")
@@ -365,8 +361,6 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
             # Verificar si está completo
             if transfer.is_complete():
                 self._complete_file_transfer(transfer)
-            
-            self._notify_transfer_progress(transfer)
             
         except Exception as e:
             log_message("ERROR", f"Error procesando fragmento de archivo: {e}")
@@ -442,7 +436,7 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
             self.completed_transfers[transfer.transfer_id] = transfer
             del self.active_transfers[transfer.transfer_id]
             
-            self._notify_transfer_completed(transfer)
+            self.notify(transfer)
             
         except Exception as e:
             log_message("ERROR", f"Error completando transferencia: {e}")
@@ -469,7 +463,7 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
                         transfer.status = "failed"
                         self.completed_transfers[transfer_id] = transfer
                         del self.active_transfers[transfer_id]
-                        self._notify_transfer_completed(transfer)
+                        self.notify(transfer)
                         continue
                     
                     # Enviar fragmentos pendientes para transferencias de envío
@@ -506,7 +500,7 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
     def attach(self, observer: Observer[FileTransfer]) -> None:
         """Registra un observer"""
         if observer not in self.observers:
-            self.observers.append(observer)
+            self.observers.add(observer)
 
     def detach(self, observer: Observer[FileTransfer]) -> None:
         """Desregistra un observer"""
