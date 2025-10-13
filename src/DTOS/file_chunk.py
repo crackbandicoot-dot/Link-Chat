@@ -1,4 +1,4 @@
-from .file import FileInfo
+from .file_info import FileInfo
 class FileChunk:
     def __init__(self,file_info:FileInfo,chunk :bytes):
         self.file_info = file_info

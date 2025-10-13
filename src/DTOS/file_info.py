@@ -1,5 +1,5 @@
 class FileInfo:
-    def __init__(self, name: str,id:int):
+    def __init__(self, name: str, id: int):
         self._name = name
         self.id =id
 

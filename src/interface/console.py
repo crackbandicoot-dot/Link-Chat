@@ -11,7 +11,7 @@ from ..networking.messaging import MessageManager
 from ..networking.file_transfer import FileTransferManager 
 from ..observer.observer import Observer
 from ..DTOS.message import Message
-from ..DTOS.file import FileInfo
+from ..DTOS.file_info import FileInfo
 from .main_menu import MainMenu
 
 
@@ -162,7 +162,7 @@ class ConsoleInterface(Observer):
                 self._handle_device_update(data)
             elif isinstance(data, Message):
                 self._handle_message_update(data)
-            elif isinstance(data, File):
+            elif isinstance(data, FileInfo):
                 self._handle_file_update(data)
     
     def _handle_device_update(self, device_data: Dict) -> None:

@@ -7,7 +7,7 @@ import threading
 from typing import Callable, Any, Dict
 from src.observer.observer import Observer
 from src.DTOS.message import Message
-from src.DTOS.file import FileInfo
+from src.DTOS.file_info import FileInfo
 
 
 class ThreadSafeController:
