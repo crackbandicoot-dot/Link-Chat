@@ -25,8 +25,8 @@ class ConsoleInterface(Observer):
         """Initialize console interface"""
         self.socket_manager = None
         self.device_discovery = None
-        self.message_service = None
-        self.file_service = None
+        self.message_manager = None
+        self.file_manager = None
         self.is_running = False
         self.input_thread = None
         self.received_files = []
