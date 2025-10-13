@@ -11,11 +11,11 @@ from ..networking.messaging import MessageManager
 from ..networking.file_transfer import FileTransferManager 
 from ..observer.observer import Observer
 from ..DTOS.message import Message
-from ..DTOS.file_info import FileInfo
+from ..core.file_transfer import FileTransfer  
 from .main_menu import MainMenu
 
 
-class ConsoleInterface(Observer):
+class ConsoleInterface(Observer[Union[Dict, Message, FileTransfer]]):
     """
     Main console interface for Link-Chat
     Implements Observer pattern to receive notifications from devices, messages and files
@@ -121,48 +121,57 @@ class ConsoleInterface(Observer):
         """
         print(f"\n🔧 Inicializando componentes en {interface}...")
         
-        # Initialize socket manager
-        self.socket_manager = raw_socket_manager(interface)
-        self.socket_manager.start_reciving()
-           
-        # Initialize device discovery
-        self.device_discovery = DeviceDiscovery(self.socket_manager)
-        self.device_discovery.attach(self)
-        self.device_discovery.start_discovery()
-        
-        # Initialize message manager
-        self.message_manager = MessageManager(self.socket_manager)
-        self.message_manager.start()
-        self.message_manager.attach(self)  # ConsoleInterface como observer de mensajes
+        try:
+            # Initialize socket manager
+            self.socket_manager = raw_socket_manager(interface)
+            self.socket_manager.start_receiving()  # CORREGIR: start_reciving -> start_receiving
+               
+            # Initialize device discovery
+            self.device_discovery = DeviceDiscovery(self.socket_manager)
+            self.device_discovery.attach(self)
+            self.device_discovery.start_discovery()
+            
+            # Initialize message manager
+            self.message_manager = MessageManager(self.socket_manager)
+            self.message_manager.start()
+            self.message_manager.attach(self)
 
-        # Initialize file manager
-        self.file_manager = FileTransferManager(self.socket_manager)
-        self.file_manager.attach(self)  
-        
-        self.is_running = True
-        
-        print("✅ Componentes inicializados correctamente")
-        print(f"📡 MAC local: {self.socket_manager.get_local_mac()}")
-        print()
-        
-        return True
+            
+            self.file_manager = FileTransferManager(self.socket_manager)
+            self.file_manager.start()  
+            self.file_manager.attach(self)
+
+            self.is_running = True
+            
+            print("✅ Componentes inicializados correctamente")
+            print(f"📡 MAC local: {self.socket_manager.get_local_mac()}")
+            print()
+            
+            return True
+            
+        except Exception as e:
+            log_message("ERROR", f"Error inicializando componentes: {e}")
+            print(f"❌ Error: {e}")
+            return False
         
     # Observer pattern implementation
-    def update(self, data: Union[dict, Message, FileInfo]) -> None:
+    def update(self, data: Union[Dict, Message, FileTransfer]) -> None:
         """
         Observer pattern implementation to receive notifications
         from devices, messages and files
 
         Args:
-            data: Can be Dict (devices), Message (messages) or File (files)
+            data: Can be Dict (devices), Message (messages) or FileTransfer (files)
         """
         with self.display_lock:
             if isinstance(data, dict) and 'mac' in data:
                 self._handle_device_update(data)
             elif isinstance(data, Message):
                 self._handle_message_update(data)
-            elif isinstance(data, FileInfo):
+            elif isinstance(data, FileTransfer):  # CORREGIR: FileTransfer en lugar de FileInfo
                 self._handle_file_update(data)
+            else:
+                log_message("WARNING", f"Tipo de dato no reconocido en update: {type(data)}")
     
     def _handle_device_update(self, device_data: Dict) -> None:
         """Handle device updates"""
@@ -178,7 +187,7 @@ class ConsoleInterface(Observer):
         """Handle received messages"""
         self._show_notification(f"💬 Mensaje de {message.sender_mac}: {message.content}")
     
-    def _handle_file_update(self, file: FileInfo) -> None:
+    def _handle_file_update(self, file: FileTransfer) -> None:
         """Handle received files"""
         self.received_files.append(file)
         self._show_notification(f"📁 Archivo recibido: {file.name}")

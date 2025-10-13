@@ -166,6 +166,11 @@ class MainMenu:
     
     def send_message_to_device(self) -> None:
         """Sends a message to a specific device"""
+        if not self.console.message_manager:
+            print("❌ Servicio de mensajes no disponible")
+            input("Presione Enter para continuar...")
+            return
+            
         if not self.console.device_discovery or not self.console.device_discovery.discovered_devices:
             print("❌ No hay dispositivos descubiertos para enviar mensajes.")
             input("Presione Enter para continuar...")
@@ -207,8 +212,9 @@ class MainMenu:
         message = self.safe_input("Ingrese el mensaje broadcast: ")
         
         if message.strip():
-            if asyncio.run(self.console.message_manager.send_message(BROADCAST_MAC, message)):
-                print(f"✅ Mensaje enviado")
+            success = self.console.message_manager.send_message(BROADCAST_MAC, message, is_broadcast=True)
+            if success:
+                print("✅ Mensaje broadcast enviado")
             else:
                 print("❌ Error enviando mensaje broadcast")
         else:
@@ -253,21 +259,20 @@ class MainMenu:
                 target_mac = devices[choice]
                 
                 print(f"\n📤 Iniciando transferencia a {target_mac}...")
-                try:
-                    self.console.file_manager.send_file(target_mac, filepath)
-                    
-                    print("✅ Transferido")
-                    
-                except Exception as e:
-                    print(f"❌ Error en transferencia: {e}")
+                success = self.console.file_manager.send_file(target_mac, filepath)
+                if success:
+                    print("✅ Transferencia iniciada correctamente")
+                    print("💡 Puede ver el progreso en las notificaciones")
+                else:
+                    print("❌ Error iniciando transferencia")
             else:
                 print("❌ Selección inválida")
-                
+            
         except ValueError:
             print("❌ Ingrese un número válido")
         except Exception as e:
             print(f"❌ Error: {e}")
-        
+    
         input("Presione Enter para continuar...")
     
     def show_received_messages(self) -> None:
@@ -287,9 +292,11 @@ class MainMenu:
             
             for i, message in enumerate(received_messages, 1):
                 print(f"  {i}. De: {message.sender_mac}")
-                print(f"     📝 {message.text}")
+                # CORREGIR: Message usa .content no .text
+                print(f"     📝 {message.content}")
+                print(f"     🕒 {time.ctime(message.timestamp/1000)}")  # AGREGAR: timestamp
                 print()
-        
+    
         input("Presione Enter para continuar...")
     
     def show_transfer_historial(self) -> None:
