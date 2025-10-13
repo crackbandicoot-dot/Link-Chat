@@ -278,13 +278,14 @@ class MainMenu:
         print("╚" + "="*50 + "╝")
         print()
         
-        if not self.console.received_messages:
+        received_messages = self.console.get_received_messages()
+        if not received_messages:
             print("📭 No hay mensajes recibidos aún...")
         else:
-            print(f"📬 {len(self.console.get_received_messages())} mensajes recibidos:")
+            print(f"📬 {len(received_messages)} mensajes recibidos:")
             print()
             
-            for i, message in enumerate(self.console.received_messages[-10:], 1):
+            for i, message in enumerate(received_messages, 1):
                 print(f"  {i}. De: {message.sender_mac}")
                 print(f"     📝 {message.text}")
                 print()
