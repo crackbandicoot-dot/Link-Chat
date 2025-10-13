@@ -185,7 +185,7 @@ class MainMenu:
                 message = self.safe_input("Ingrese el mensaje: ")
                 
                 if message.strip():
-                    success = asyncio.run(self.console.message_service.send_message(target_mac, message))
+                    success = self.console.message_manager.send_message(target_mac, message)
                     if success:
                         print("✅ Mensaje enviado correctamente")
                     else:
@@ -207,7 +207,7 @@ class MainMenu:
         message = self.safe_input("Ingrese el mensaje broadcast: ")
         
         if message.strip():
-            if asyncio.run(self.console.message_service.send_message(BROADCAST_MAC, message)):
+            if asyncio.run(self.console.message_manager.send_message(BROADCAST_MAC, message)):
                 print(f"✅ Mensaje enviado")
             else:
                 print("❌ Error enviando mensaje broadcast")
@@ -254,7 +254,7 @@ class MainMenu:
                 
                 print(f"\n📤 Iniciando transferencia a {target_mac}...")
                 try:
-                    success = asyncio.run(self.console.file_service.send_file(target_mac, filepath))
+                    success = asyncio.run(self.console.file_manager.send_file(target_mac, filepath))
                     
                     if success:
                         print("✅ Transferencia iniciada")
