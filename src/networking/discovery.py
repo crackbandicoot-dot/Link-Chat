@@ -57,10 +57,10 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
         self.is_running = False
         
         if self.discovery_thread and self.discovery_thread.is_alive():
-            self.discovery_thread.join(timeout=2)
+            self.discovery_thread.join()
         
         if self.heartbeat_thread and self.heartbeat_thread.is_alive():
-            self.heartbeat_thread.join(timeout=2)
+            self.heartbeat_thread.join()
         
         # Desregistrarse del socket manager
         self.socket_manager.detach(self)

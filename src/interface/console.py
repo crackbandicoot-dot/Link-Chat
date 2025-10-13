@@ -137,7 +137,6 @@ class ConsoleInterface(Observer):
 
         # Initialize file manager
         self.file_manager = FileTransferManager(self.socket_manager)
-        self.file_manager.start()
         self.file_manager.attach(self)  
         
         self.is_running = True
@@ -149,7 +148,7 @@ class ConsoleInterface(Observer):
         return True
         
     # Observer pattern implementation
-    def update(self, data: Union[dict, Message, File]) -> None:
+    def update(self, data: Union[dict, Message, FileInfo]) -> None:
         """
         Observer pattern implementation to receive notifications
         from devices, messages and files
@@ -205,27 +204,9 @@ class ConsoleInterface(Observer):
         self.is_running = False
 
         try:
-            
-            if self.device_discovery:
-                self.device_discovery.detach(self)  
-                self.device_discovery.stop()
-
-            if self.message_manager: 
-                self.message_manager.detach(self)
-                self.message_manager.stop()
-
-            if self.file_manager:  
-                self.file_manager.detach(self)
-                self.file_manager.stop()
-
-            if self.socket_manager:
-                self.socket_manager.stop_receiving() 
-                self.socket_manager.close_socket()
-
+            sys.exit(0)
             print("✅ Link-Chat cerrado correctamente")
 
         except Exception as e:
             log_message("ERROR", f"Error durante shutdown: {e}")
             print(f"⚠️ Error al cerrar: {e}")
-
-        sys.exit(0)

@@ -2,13 +2,13 @@ import json
 import threading
 import time
 from typing import Dict, List, Callable, Optional
-from utils.constants import *
-from utils.helpers import log_message, create_message_id, get_timestamp
+from ..utils.constants import *
+from ..utils.helpers import log_message, create_message_id, get_timestamp
 from ..core.frame import LinkChatFrame
-from ..core.raw_socket_manager import RawSocketManager
 from ..DTOS.message import Message
 from ..observer.observer import Observer
 from ..observer.subject import Subject
+from ..core.raw_socket_manager import raw_socket_manager
 
 class MessageManager(Observer[LinkChatFrame], Subject[Message]):
     """
@@ -19,7 +19,7 @@ class MessageManager(Observer[LinkChatFrame], Subject[Message]):
     - Como Subject: Es observado por la interfaz de usuario para notificar nuevos mensajes
     """
     
-    def __init__(self, socket_manager: RawSocketManager):
+    def __init__(self, socket_manager: raw_socket_manager):
         """
         Inicializa el gestor de mensajes
         
@@ -63,7 +63,7 @@ class MessageManager(Observer[LinkChatFrame], Subject[Message]):
         self.socket_manager.detach(self)
         
         if self.ack_timeout_thread and self.ack_timeout_thread.is_alive():
-            self.ack_timeout_thread.join(timeout=2)
+            self.ack_timeout_thread.join()
         
         log_message("INFO", "Gestor de mensajes detenido")
     

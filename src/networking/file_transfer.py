@@ -5,7 +5,7 @@ from pathlib import Path
 from ..observer.observer import Observer, T
 from ..observer.subject import Subject
 from ..core.raw_socket_manager import raw_socket_manager
-from  ..core.frame import LinkChatFrame
+from ..core.frame import LinkChatFrame
 from ..DTOS.file_info import FileInfo
 from ..utils.constants import MAX_CHUNK_SIZE,MSG_TYPE_FILE_START,MSG_TYPE_FILE_CHUNK,MSG_TYPE_FILE_END,DOWNLOADS_PATH,MSG_TYPE_FILE_START_ACK,MSG_TYPE_FILE__END_ACK,MSG_TYPE_FILE_CHUNK_ACK
 from ..utils.binary_serializer import BinarySerializer

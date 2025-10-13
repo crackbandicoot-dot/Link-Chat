@@ -93,7 +93,7 @@ class raw_socket_manager(Subject[LinkChatFrame]):
             self._receive_thread = threading.Thread(target=self.receive_frames, daemon=True)
             self._receive_thread.start()
 
-    def stop_reciving(self) -> None:
+    def stop_receiving(self) -> None:
         """Stops the frame receiving thread gracefully."""
         if self._is_receiving:
             self._is_receiving = False
