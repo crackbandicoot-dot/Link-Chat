@@ -12,25 +12,24 @@ from ..utils.binary_serializer import BinarySerializer
 from ..utils.helpers import create_message_id
 from ..DTOS.file_chunk import FileChunk
 from asyncio import sleep
-class FileTransferService(Subject[FileInfo],Observer[LinkChatFrame]):
+class FileTransferManager(Subject[FileInfo],Observer[LinkChatFrame]):
     def __init__(self, socket_manager: raw_socket_manager):
         self.observers = set()
         self.socket_manager = socket_manager
-        self.recived_chunks  = {}
-        self.recived_files_names = {}
+        self.received_chunks  = {}
+        self.received_files_names = {}
         self.chunks_confirmations ={}
         self.starts_confirmations ={}
         self.end_confirmations ={}
 
-
     def save_file(self,file_id):
-        file_name = self.recived_files_names[file_id]
+        file_name = self.received_files_names[file_id]
         file_path = Path(DOWNLOADS_PATH) / file_name
         file_path.parent.mkdir(parents=True, exist_ok=True)
     
         with open(file_path, 'wb') as output_file:
             # Sort chunks by message_id to ensure correct order
-            chunks_dict = self.recived_chunks[file_id]
+            chunks_dict = self.received_chunks[file_id]
             for chunk_id in sorted(chunks_dict.keys()):
                 output_file.write(chunks_dict[chunk_id])
 
@@ -41,18 +40,18 @@ class FileTransferService(Subject[FileInfo],Observer[LinkChatFrame]):
 
         elif data.msg_type==MSG_TYPE_FILE_START:
             file_info:FileInfo = BinarySerializer.deserialize(data.data)
-            self.recived_files_names[file_info.id] = file_info.name
+            self.received_files_names[file_info.id] = file_info.name
             self.socket_manager.send_frame(LinkChatFrame(data.src_mac,data.dest_mac,MSG_TYPE_FILE_START_ACK,data.msg_id,BinarySerializer.serialize(file_info)))
             
 
         elif data.msg_type==MSG_TYPE_FILE_CHUNK_ACK:
             file_info:FileInfo = BinarySerializer.deserialize(data.data)
-            self.recived_chunks[file_info.id][data.msg_id] = True
+            self.received_chunks[file_info.id][data.msg_id] = True
 
         elif data.msg_type==MSG_TYPE_FILE_CHUNK:
             file_chunk:FileChunk = BinarySerializer.deserialize(data.data)
-            self.recived_chunks[file_chunk.file_info.id][data.msg_id] = file_chunk.chunk
-            self.recived_files_names[file_chunk.file_info.id]=file_chunk.file_info.name
+            self.received_chunks[file_chunk.file_info.id][data.msg_id] = file_chunk.chunk
+            self.received_files_names[file_chunk.file_info.id]=file_chunk.file_info.name
             self.socket_manager.send_frame(LinkChatFrame(data.src_mac,data.dest_mac,MSG_TYPE_FILE_CHUNK_ACK,data.msg_id,BinarySerializer.serialize(file_chunk.file_info)))
         
         elif data.msg_type == MSG_TYPE_FILE__END_ACK:
@@ -62,8 +61,8 @@ class FileTransferService(Subject[FileInfo],Observer[LinkChatFrame]):
         elif data.msg_type==MSG_TYPE_FILE_END:
             file_info :FileInfo = BinarySerializer.deserialize(data.data)
             self.save_file(file_info.id)
-            self.socket_manager.send_frame(LinkChatFrame(data.src_mac,data.dest_mac,data,MSG_TYPE_FILE__END_ACK,data.msg_id,data.data))
-            self.notify(FileInfo(self.recived_file_name))
+            self.socket_manager.send_frame(LinkChatFrame(data.src_mac,data.dest_mac,MSG_TYPE_FILE__END_ACK,data.msg_id,data.data))
+            self.notify(file_info)
         
 
     def split_chunks(self, file_path, chunk_size=MAX_CHUNK_SIZE-400):
