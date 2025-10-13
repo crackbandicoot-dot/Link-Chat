@@ -283,7 +283,7 @@ class MainMenu:
         if not self.console.received_messages:
             print("📭 No hay mensajes recibidos aún...")
         else:
-            print(f"📬 {len(self.console.received_messages)} mensajes recibidos:")
+            print(f"📬 {len(self.console.get_received_messages())} mensajes recibidos:")
             print()
             
             for i, message in enumerate(self.console.received_messages[-10:], 1):

@@ -7,10 +7,16 @@ from utils.helpers import log_message, create_message_id, get_timestamp
 from ..core.frame import LinkChatFrame
 from ..core.raw_socket_manager import RawSocketManager
 from ..DTOS.message import Message
+from ..observer.observer import Observer
+from ..observer.subject import Subject
 
-class MessageManager:
+class MessageManager(Observer[LinkChatFrame], Subject[Message]):
     """
     Maneja el envío y recepción de mensajes de texto
+    
+    Implementa el patrón Observer:
+    - Como Observer: Observa al RawSocketManager para recibir frames
+    - Como Subject: Es observado por la interfaz de usuario para notificar nuevos mensajes
     """
     
     def __init__(self, socket_manager: RawSocketManager):
@@ -28,13 +34,20 @@ class MessageManager:
         self.confirmed_messages = {}    # ID -> Message (ya confirmados)
         self.received_messages = {}     # ID -> Message
         self.message_queue = []         # Lista de mensajes recibidos ordenados
+        
+        # Observer pattern - como Subject
+        self._observers: List[Observer[Message]] = []
+        
+        # Control de hilos
         self.is_running = False
         self.ack_timeout_thread = None
-        self.observer = {}
         
     def start(self) -> None:
         """Inicia el gestor de mensajes"""
         self.is_running = True
+        
+        # Registrarse como observer del socket manager
+        self.socket_manager.attach(self)
            
         # Iniciar hilo para manejo de timeouts de ACK
         self.ack_timeout_thread = threading.Thread(target=self._ack_timeout_loop, daemon=True)
@@ -45,6 +58,9 @@ class MessageManager:
     def stop(self) -> None:
         """Detiene el gestor de mensajes"""
         self.is_running = False
+        
+        # Desregistrarse del socket manager
+        self.socket_manager.detach(self)
         
         if self.ack_timeout_thread and self.ack_timeout_thread.is_alive():
             self.ack_timeout_thread.join(timeout=2)
@@ -240,13 +256,64 @@ class MessageManager:
         """
         return self.message_queue[-limit:] if self.message_queue else []   
     
-    def _handle_frame(self, frame: LinkChatFrame, addr) -> None:
+    
+    def attach(self, observer: Observer[Message]) -> None:
+        """
+        Registra un observer para recibir notificaciones de nuevos mensajes
+        
+        Args:
+            observer: Observer que recibirá notificaciones de mensajes
+        """
+        if observer not in self._observers:
+            self._observers.append(observer)
+            log_message("DEBUG", f"Observer registrado en MessageManager: {type(observer).__name__}")
+    
+    def detach(self, observer: Observer[Message]) -> None:
+        """
+        Desregistra un observer
+        
+        Args:
+            observer: Observer a desregistrar
+        """
+        if observer in self._observers:
+            self._observers.remove(observer)
+            log_message("DEBUG", f"Observer desregistrado de MessageManager: {type(observer).__name__}")
+    
+    def notify(self, message: Message) -> None:
+        """
+        Notifica a todos los observers registrados sobre un nuevo mensaje
+        
+        Args:
+            message: Mensaje a notificar
+        """
+        for observer in self._observers:
+            try:
+                observer.update(message)
+            except Exception as e:
+                log_message("ERROR", f"Error notificando observer {type(observer).__name__}: {e}")
+    
+   
+    def update(self, frame: LinkChatFrame) -> None:
+        """
+        Método del patrón Observer - recibe notificaciones del RawSocketManager
+        
+        Args:
+            frame: Trama Ethernet recibida del socket manager
+        """
+        try:
+            # Procesar solo frames relacionados con mensajería
+            if frame.msg_type in [MSG_TYPE_MESSAGE, MSG_TYPE_BROADCAST, MSG_TYPE_MESSAGE_ACK]:
+                self._handle_frame(frame)
+                
+        except Exception as e:
+            log_message("ERROR", f"Error en update del MessageManager: {e}")
+    
+    def _handle_frame(self, frame: LinkChatFrame) -> None:
         """
         Maneja tramas recibidas relacionadas con mensajería
         
         Args:
             frame: Trama Ethernet recibida
-            addr: Dirección del remitente
         """
         try:
             # Procesar según el tipo de mensaje
@@ -281,7 +348,14 @@ class MessageManager:
                 return
             
             # Crear objeto mensaje
-            message = Message(msg_id, src_mac, content, timestamp, False)
+            message = Message(
+            msg_id, 
+            src_mac, 
+            self.local_mac,  
+            content, 
+            timestamp, 
+            is_broadcast
+        )
             self.received_messages[msg_id] = message
             self.message_queue.append(message)
             
@@ -296,6 +370,9 @@ class MessageManager:
             # Enviar ACK
             if not is_broadcast:
                 self.send_message_ack(src_mac, msg_id)
+            
+            # Notificar a los observers (UI) sobre el nuevo mensaje
+            self.notify(message)
             
         except Exception as e:
             log_message("ERROR", f"Error procesando mensaje de texto: {e}")
@@ -337,48 +414,51 @@ class MessageManager:
         Hilo para manejar timeouts de ACK y reenvíos automáticos
         """
         log_message("INFO", "Hilo de timeout de ACK iniciado")
-        
-        MAX_RETRIES = 3  # Máximo número de reenvíos
-        TIMEOUT_MS = 3000  # 3 segundos de timeout
-        
+
+        MAX_RETRIES = 3
+        TIMEOUT_MS = 3000
+
         while self.is_running:
             try:
                 current_time = get_timestamp()
                 messages_to_retry = []  
-                messages_to_fail =[]
-                
-                # Revisar mensajes pendientes (esperando ACK)
-                for msg_id, message in list(self.pending_messages.items()):
+                messages_to_fail = []
+
+                #Hacer copia para evitar modificación durante iteración
+                pending_copy = dict(self.pending_messages)
+
+                for msg_id, message in pending_copy.items():
+                    # Verificar que el mensaje aún esté pendiente
+                    if msg_id not in self.pending_messages:
+                        continue
+
                     time_elapsed = current_time - message.timestamp
-                    
-                    # Verificar si ha pasado el timeout
+
                     if time_elapsed > TIMEOUT_MS: 
                         if message.retry_count < MAX_RETRIES:
-                            # Aún se puede reintentar
                             messages_to_retry.append(message)
                         else:
-                            # Se agotaron los intentos, marcar como fallido
                             messages_to_fail.append(message)
                             log_message("WARNING", 
                                       f"Mensaje {msg_id} falló después de {message.retry_count} intentos")
-                
+
                 # Procesar reenvíos
                 for message in messages_to_retry:
-                    if self.resend_message(message):
-                        log_message("DEBUG", f"Mensaje {message.msg_id} reenviado automáticamente")
-                
-                # Procesar mensajes fallidos (opcional: mover a otra cola)
+                    if message.msg_id in self.pending_messages:  # Double check
+                        if self.resend_message(message):
+                            log_message("DEBUG", f"Mensaje {message.msg_id} reenviado automáticamente")
+
+                # Procesar mensajes fallidos
                 for message in messages_to_fail:
                     failed_msg = self.pending_messages.pop(message.msg_id, None)
                     if failed_msg:
-                        # Opcional: guardar en una cola de mensajes fallidos
                         log_message("ERROR", 
                                   f"Mensaje {message.msg_id} marcado como fallido definitivamente")
 
-                time.sleep(3)  # Revisar cada 3 segundos para mayor responsividad
+                time.sleep(2)  # Revisar cada 2 segundos
 
             except Exception as e:
                 log_message("ERROR", f"Error en loop de timeout de ACK: {e}")
                 time.sleep(5)
-        
+
         log_message("INFO", "Hilo de timeout de ACK detenido")
