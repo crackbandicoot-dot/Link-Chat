@@ -4,7 +4,7 @@ import time
 import asyncio
 from typing import Optional, List
 from ..utils.helpers import format_file_size
-from ..utils.constants import BROADCAST_MAC
+from ..utils.constants import BROADCAST_MAC,ETHERTYPE_LINKCHAT,PROTOCOL_VERSION
 
 
 class MainMenu:
@@ -71,7 +71,7 @@ class MainMenu:
         while True:
             os.system('cls' if os.name == 'nt' else 'clear')
             print("╔" + "="*40 + "╗")
-            print("║           MENSAJERÍA                      ║")
+            print("║           MENSAJERÍA                   ║")
             print("╚" + "="*40 + "╝")
             print()
             
@@ -125,7 +125,7 @@ class MainMenu:
         """Shows discovered devices"""
         os.system('cls' if os.name == 'nt' else 'clear')
         print("╔" + "="*50 + "╗")
-        print("║           DISPOSITIVOS DESCUBIERTOS           ║")
+        print("║           DISPOSITIVOS DESCUBIERTOS              ║")
         print("╚" + "="*50 + "╝")
         print()
         
@@ -158,8 +158,8 @@ class MainMenu:
         if self.console.socket_manager:
             print(f"🔌 Interfaz: {self.console.socket_manager.interface}")
             print(f"📡 MAC local: {self.console.socket_manager.get_local_mac()}")
-            print(f"🌐 Protocolo: Link-Chat v{self.console.socket_manager.PROTOCOL_VERSION}")
-            print(f"🔢 EtherType: 0x{self.console.socket_manager.ETHERTYPE_LINKCHAT:04X}")
+            print(f"🌐 Protocolo: Link-Chat v{PROTOCOL_VERSION}")
+            print(f"🔢 EtherType: 0x{ETHERTYPE_LINKCHAT:04x}")
         
         print()  
         input("\nPresione Enter para continuar...")

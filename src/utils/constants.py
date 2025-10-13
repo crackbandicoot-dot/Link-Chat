@@ -23,8 +23,8 @@ FILE_TIMEOUT = 30      # Timeout para transferencia de archivos (segundos)
 MAX_RETRIES = 10000        # Máximo número de reintentos
 
 # Configuración de red
-DISCOVERY_INTERVAL = 30    # Intervalo de descubrimiento (segundos)
-HEARTBEAT_INTERVAL = 10    # Intervalo de heartbeat (segundos)
+DISCOVERY_INTERVAL = 35    # Intervalo de descubrimiento (segundos)
+HEARTBEAT_INTERVAL = 35    # Intervalo de heartbeat (segundos)
 DEVICE_TIMEOUT = 60        # Timeout para considerar dispositivo desconectado
 
 # Configuración de interfaz

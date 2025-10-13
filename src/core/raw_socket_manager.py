@@ -102,7 +102,7 @@ class raw_socket_manager(Subject[LinkChatFrame]):
                 self._receive_thread.join()  # Wait for the thread to finish
             self._receive_thread = None
 
-    def get_local_mac(self) -> bytes:
+    def get_local_mac(self) -> str:
         """Returns the MAC address of the interface this socket is bound to."""
         return self._self_mac
 

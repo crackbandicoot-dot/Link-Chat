@@ -25,7 +25,7 @@ class MainWindow(tk.Tk):
         super().__init__()
         
         self.title("Link-Chat - Mensajería P2P")
-        self.geometry("800x600")
+        self.geometry("1000x700")
         
         # Servicios
         self.socket_manager = None
@@ -209,7 +209,7 @@ class MainWindow(tk.Tk):
         # Diálogo de selección
         dialog = tk.Toplevel(self)
         dialog.title("Seleccionar Interfaz de Red")
-        dialog.geometry("400x300")
+        dialog.geometry("600x500")
         dialog.transient(self)
         dialog.grab_set()
         
@@ -270,8 +270,8 @@ class MainWindow(tk.Tk):
             self.socket_manager.start_reciving()
             
             # Obtener MAC local
-            local_mac_bytes = self.socket_manager.get_local_mac()
-            local_mac = ':'.join(f'{b:02x}' for b in local_mac_bytes)
+            local_mac = self.socket_manager.get_local_mac()
+        
             
             # Inicializar descubrimiento
             self.device_discovery = DeviceDiscovery(self.socket_manager)
@@ -443,7 +443,3 @@ def main():
     """Función principal para ejecutar la GUI"""
     app = MainWindow()
     app.mainloop()
-
-
-if __name__ == "__main__":
-    main()
