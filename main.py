@@ -1,15 +1,5 @@
-#!/usr/bin/env python3
-"""
-Link-Chat - Punto de entrada principal
-Sistema de comunicación peer-to-peer usando raw sockets Ethernet
-"""
-
 import sys
 import os
-
-
-
-
 
 def main():
     """Función principal de Link-Chat"""
@@ -35,8 +25,7 @@ def main():
         console = ConsoleInterface()
         print("[DEBUG] Starting console interface...")
         console.start()
-        console.main_menu()
-        
+    
     except KeyboardInterrupt:
         print("\nLink-Chat cerrado por el usuario")
         sys.exit(0)
