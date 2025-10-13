@@ -7,7 +7,7 @@ import threading
 from typing import Callable, Any, Dict
 from src.observer.observer import Observer
 from src.DTOS.message import Message
-from src.DTOS.file import File
+from src.DTOS.file import FileInfo
 
 
 class ThreadSafeController:
@@ -57,7 +57,7 @@ class ThreadSafeController:
         elif isinstance(data, Message):
             # Evento de mensaje
             self.message_queue.put(data)
-        elif isinstance(data, File):
+        elif isinstance(data, FileInfo):
             # Evento de archivo
             self.file_queue.put(data)
     

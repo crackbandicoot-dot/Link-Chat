@@ -11,7 +11,7 @@ from ..networking.messaging import MessageManager
 from ..networking.file_transfer import FileTransferManager 
 from ..observer.observer import Observer
 from ..DTOS.message import Message
-from ..DTOS.file import File
+from ..DTOS.file import FileInfo
 from .main_menu import MainMenu
 
 
@@ -179,7 +179,7 @@ class ConsoleInterface(Observer):
         """Handle received messages"""
         self._show_notification(f"💬 Mensaje de {message.sender_mac}: {message.content}")
     
-    def _handle_file_update(self, file: File) -> None:
+    def _handle_file_update(self, file: FileInfo) -> None:
         """Handle received files"""
         self.received_files.append(file)
         self._show_notification(f"📁 Archivo recibido: {file.name}")
