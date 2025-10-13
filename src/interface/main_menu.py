@@ -254,12 +254,10 @@ class MainMenu:
                 
                 print(f"\n📤 Iniciando transferencia a {target_mac}...")
                 try:
-                    success = asyncio.run(self.console.file_manager.send_file(target_mac, filepath))
+                    self.console.file_manager.send_file(target_mac, filepath)
                     
-                    if success:
-                        print("✅ Transferencia iniciada")
-                    else:
-                        print("❌ Error iniciando transferencia")
+                    print("✅ Transferido")
+                    
                 except Exception as e:
                     print(f"❌ Error en transferencia: {e}")
             else:

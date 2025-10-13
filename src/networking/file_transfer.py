@@ -79,7 +79,7 @@ class FileTransferManager(Subject[FileInfo],Observer[LinkChatFrame]):
                 chunk_files.append(chunk_data)
 
         return chunk_files
-    async def send_file(self,target_mac:str,file_path:str)->None:
+    def send_file(self,target_mac:str,file_path:str)->None:
 
          #Send file start frame
          file_name = Path(file_path).name
@@ -88,7 +88,7 @@ class FileTransferManager(Subject[FileInfo],Observer[LinkChatFrame]):
          self.starts_confirmations[file_info.id] = False
          while not self.starts_confirmations[file_info.id]:
             self.socket_manager.send_frame(LinkChatFrame(target_mac, self.socket_manager.get_local_mac(), MSG_TYPE_FILE_START, 0, serialized_info))
-            await sleep(0.1)
+            
 
          #Send chunks
          chunk_number = 0
@@ -99,12 +99,12 @@ class FileTransferManager(Subject[FileInfo],Observer[LinkChatFrame]):
              self.chunks_confirmations[file_info.id][chunk_number]=False
              while not self.chunks_confirmations[file_info.id][chunk_number]:   
                 self.socket_manager.send_frame(LinkChatFrame(target_mac, self.socket_manager.get_local_mac(), MSG_TYPE_FILE_CHUNK, chunk_number, file_chunk))
-                await sleep(0.1)
+            
 
          self.end_confirmations[file_info.id]=False
          while not self.end_confirmations[file_info.id]:
             self.socket_manager.send_frame((LinkChatFrame(target_mac,self.socket_manager.get_local_mac(),MSG_TYPE_FILE_END,chunk_number+1,serialized_info)))
-            await sleep(0.1)
+        
 
 
     def attach(self, observer: Observer[FileInfo]) -> None:
