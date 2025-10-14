@@ -474,7 +474,7 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
                     if transfer.is_sender and transfer.status == "active":
                         self._process_sender_transfer(transfer)
                 
-                time.sleep(0.1)  
+                time.sleep(0.01)  
                 
             except Exception as e:
                 log_message("ERROR", f"Error en loop de gestión de transferencias: {e}")
@@ -490,12 +490,13 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
             transfer: Objeto de transferencia
         """
         # Enviar fragmentos no confirmados
+        log_message("INFO","Transferencia en progreso")
+
         for chunk_num in range(transfer.total_chunks):
             if chunk_num not in transfer.chunks_acked:
                 # Limitar número de fragmentos no confirmados simultáneos
                 unacked_chunks = transfer.chunks_sent - len(transfer.chunks_acked)
-                if unacked_chunks < 10:  # Máximo 10 fragmentos sin ACK
-                    log_message("INFO","Transferencia en progreso")
+                if unacked_chunks < 50: 
                     self._send_file_chunk(transfer, chunk_num)
                     
 
