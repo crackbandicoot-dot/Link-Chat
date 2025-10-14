@@ -50,7 +50,7 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
             self.heartbeat_thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
             self.heartbeat_thread.start()
         
-        log_message("INFO", "Descubrimiento automático iniciado")
+        #log_message("INFO", "Descubrimiento automático iniciado")
     
     def stop(self) -> None:
         """Detiene el sistema de descubrimiento"""
@@ -65,7 +65,7 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
         # Desregistrarse del socket manager
         self.socket_manager.detach(self)
         
-        log_message("INFO", "Sistema de descubrimiento detenido")
+        #log_message("INFO", "Sistema de descubrimiento detenido")
         
     def send_discovery_request(self) -> bool:
         """
@@ -96,9 +96,11 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
             success = self.socket_manager.send_frame(frame)
             
             if success:
-                log_message("DEBUG", "Solicitud de descubrimiento enviada")
+                #log_message("DEBUG", "Solicitud de descubrimiento enviada")
+                pass
             else:
                 log_message("ERROR", "Error enviando solicitud de descubrimiento")
+            
             
             return success
             
@@ -138,7 +140,8 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
             success = self.socket_manager.send_frame(frame)
             
             if success:
-                log_message("DEBUG", f"Respuesta de descubrimiento enviada a {target_mac}")
+                #log_message("DEBUG", f"Respuesta de descubrimiento enviada a {target_mac}")
+                pass
             
             return success
             
@@ -243,7 +246,7 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
             frame: Trama Link-Chat recibida
         """
         try:            
-            log_message("INFO", f"Solicitud de descubrimiento de {frame.src_mac}")
+            #log_message("INFO", f"Solicitud de descubrimiento de {frame.src_mac}")
             
             # Agregar dispositivo a la lista
             self._add_device(frame.src_mac, {
@@ -267,7 +270,7 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
             frame: Trama Link-Chat recibida
         """
         try:       
-            log_message("INFO", f"Respuesta de descubrimiento de {frame.src_mac}")
+            #log_message("INFO", f"Respuesta de descubrimiento de {frame.src_mac}")
             
             # Agregar dispositivo a la lista
             self._add_device(frame.src_mac, {
@@ -293,7 +296,7 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
                 self.discovered_devices[frame.src_mac]['last_seen'] = get_timestamp()
                 self.discovered_devices[frame.src_mac]['active'] = True
                 
-                log_message("DEBUG", f"Heartbeat recibido de {frame.src_mac}")
+                #log_message("DEBUG", f"Heartbeat recibido de {frame.src_mac}")
             
         except Exception as e:
             log_message("ERROR", f"Error procesando heartbeat: {e}")
@@ -313,7 +316,8 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
         self.discovered_devices[mac] = info
         
         if is_new:
-            log_message("INFO", f"Nuevo dispositivo descubierto: {mac}")
+            #log_message("INFO", f"Nuevo dispositivo descubierto: {mac}")
+            pass
         
         # Notificar a observadores usando patrón Observer
         device_info = {
@@ -325,7 +329,7 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
     
     def _discovery_loop(self) -> None:
         """Hilo principal para envío periódico de descubrimiento"""
-        log_message("INFO", "Hilo de descubrimiento iniciado")
+        #log_message("INFO", "Hilo de descubrimiento iniciado")
         
         while self.is_running:
             try:
@@ -335,11 +339,11 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
                 log_message("ERROR", f"Error en loop de descubrimiento: {e}")
                 time.sleep(5)
         
-        log_message("INFO", "Hilo de descubrimiento detenido")
+        #log_message("INFO", "Hilo de descubrimiento detenido")
     
     def _heartbeat_loop(self) -> None:
         """Hilo principal para envío periódico de heartbeat"""
-        log_message("INFO", "Hilo de heartbeat iniciado")
+        #log_message("INFO", "Hilo de heartbeat iniciado")
         
         while self.is_running:
             try:
@@ -349,16 +353,16 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
                 log_message("ERROR", f"Error en loop de heartbeat: {e}")
                 time.sleep(5)
         
-        log_message("INFO", "Hilo de heartbeat detenido")
+        #log_message("INFO", "Hilo de heartbeat detenido")
     
     # Observer pattern implementation
     def attach(self, observer: Observer[Dict]) -> None:
         self.observers.add(observer)
-        log_message("DEBUG", f"Observer registrado. Total observers: {len(self.observers)}")
+        #log_message("DEBUG", f"Observer registrado. Total observers: {len(self.observers)}")
     
     def detach(self, observer: Observer[Dict]) -> None:
         self.observers.discard(observer)
-        log_message("DEBUG", f"Observer removido. Total observers: {len(self.observers)}")
+        #log_message("DEBUG", f"Observer removido. Total observers: {len(self.observers)}")
     
     def notify(self, device_data: Dict) -> None:
         for observer in self.observers:

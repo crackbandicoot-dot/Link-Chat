@@ -36,9 +36,10 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
         self.is_running = False
         self.transfer_thread = None
         
+        socket_manager.attach(self)
         self.observers = set()
         # Directorio de recepción
-        self.download_dir = os.path.join(os.getcwd(), "received_files")
+        self.download_dir = os.path.join(DOWNLOADS_PATH, "LinkChat")
         if not os.path.exists(self.download_dir):
             os.makedirs(self.download_dir)
         
@@ -405,6 +406,7 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
         try:
             if not transfer.is_sender:
                 # Ensamblar archivo desde fragmentos
+                
                 with open(transfer.temp_file_path, 'wb') as f:
                     for chunk_num in range(transfer.total_chunks):
                         if chunk_num in transfer.chunks_data:
