@@ -316,7 +316,7 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
         self.discovered_devices[mac] = info
         
         if is_new:
-            #log_message("INFO", f"Nuevo dispositivo descubierto: {mac}")
+            log_message("INFO", f"Nuevo dispositivo descubierto: {mac}")
             pass
         
         # Notificar a observadores usando patrón Observer
@@ -353,16 +353,13 @@ class DeviceDiscovery(Subject[Dict], Observer[LinkChatFrame]):
                 log_message("ERROR", f"Error en loop de heartbeat: {e}")
                 time.sleep(5)
         
-        #log_message("INFO", "Hilo de heartbeat detenido")
     
     # Observer pattern implementation
     def attach(self, observer: Observer[Dict]) -> None:
         self.observers.add(observer)
-        #log_message("DEBUG", f"Observer registrado. Total observers: {len(self.observers)}")
     
     def detach(self, observer: Observer[Dict]) -> None:
         self.observers.discard(observer)
-        #log_message("DEBUG", f"Observer removido. Total observers: {len(self.observers)}")
     
     def notify(self, device_data: Dict) -> None:
         for observer in self.observers:

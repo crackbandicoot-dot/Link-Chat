@@ -20,7 +20,7 @@ MSG_TYPE_HEARTBEAT = 0x09      # Heartbeat para mantener conexión
 MSG_TYPE_BROADCAST = 0x0A      # Mensaje broadcast
 
 # Configuración de transferencia de archivos
-MAX_CHUNK_SIZE = 800  # Tamaño máximo de fragmento (considerando MTU)
+MAX_CHUNK_SIZE = 1000  # Tamaño máximo de fragmento (considerando MTU)
 FILE_TIMEOUT = 30      # Timeout para transferencia de archivos (segundos)
 MAX_RETRIES = 10        # Máximo número de reintentos
 

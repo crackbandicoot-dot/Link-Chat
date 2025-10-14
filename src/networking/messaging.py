@@ -233,11 +233,7 @@ class MessageManager(Observer[LinkChatFrame], Subject[Message]):
             )
             
             # Enviar trama
-            success = self.socket_manager.send_frame(frame)
-            
-            if success:
-                log_message("DEBUG", f"ACK enviado a {target_mac} para mensaje {original_msg_id}")
-            
+            success = self.socket_manager.send_frame(frame)            
             return success
             
         except Exception as e:
@@ -266,7 +262,6 @@ class MessageManager(Observer[LinkChatFrame], Subject[Message]):
         """
         if observer not in self._observers:
             self._observers.append(observer)
-            log_message("DEBUG", f"Observer registrado en MessageManager: {type(observer).__name__}")
     
     def detach(self, observer: Observer[Message]) -> None:
         """
@@ -277,7 +272,6 @@ class MessageManager(Observer[LinkChatFrame], Subject[Message]):
         """
         if observer in self._observers:
             self._observers.remove(observer)
-            log_message("DEBUG", f"Observer desregistrado de MessageManager: {type(observer).__name__}")
     
     def notify(self, message: Message) -> None:
         """
@@ -401,7 +395,6 @@ class MessageManager(Observer[LinkChatFrame], Subject[Message]):
                 self.confirmed_messages[original_msg_id] = message
                 
                 log_message("INFO", f"ACK recibido de {src_mac} para mensaje {original_msg_id}")
-                log_message("DEBUG", f"Mensaje {original_msg_id} confirmado y movido a storage")
             else:
                 log_message("WARNING", f"ACK recibido para mensaje no encontrado: {original_msg_id}")
             

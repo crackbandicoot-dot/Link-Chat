@@ -262,7 +262,6 @@ class MainMenu:
                 success = self.console.file_manager.send_file (target_mac, filepath)
                 if success:
                     print("✅ Transferencia iniciada correctamente")
-                    print("💡 Puede ver el progreso en las notificaciones")
                 else:
                     print("❌ Error iniciando transferencia")
             else:
@@ -314,7 +313,7 @@ class MainMenu:
             print()
             
             for i, file in enumerate(self.console.received_files, 1):
-                print(f"  {i}. 📁 {file.name}")
+                print(f"  {i}. 📁 {file.filename}")
             print()
         
         input("Presione Enter para continuar...")
