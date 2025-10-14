@@ -74,6 +74,8 @@ class raw_socket_manager(Subject[LinkChatFrame]):
                 raw_packet, _ = self.sock.recvfrom(BUFFER_SIZE)
                 if raw_packet and self._is_receiving:
                     received_frame = LinkChatFrame.from_bytes(raw_packet)
+                    if received_frame.src_mac == self._self_mac:
+                        continue
                     self.notify(received_frame)
             except socket.error:
                 # An error (e.g., socket closed) will break the loop

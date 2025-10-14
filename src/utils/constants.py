@@ -13,14 +13,14 @@ MSG_TYPE_MESSAGE_ACK = 0x04    # Acknowledgment de mensaje
 MSG_TYPE_FILE_START = 0x05     # Inicio de transferencia de archivo
 MSG_TYPE_FILE_CHUNK = 0x06     # Fragmento de archivo
 MSG_TYPE_FILE_END = 0x07       # Fin de transferencia de archivo
-MSG_TYPE_FILE_START_ACK = 0x0B #Mesnaje confirmacion de inicio de archivo
+MSG_TYPE_FILE_START_ACK = 0x0B #Mensaje confirmacion de inicio de archivo
 MSG_TYPE_FILE_CHUNK_ACK = 0x0C #Mensaje de confirmacion de chunk
 MSG_TYPE_FILE__END_ACK = 0x08  # Acknowledgment de archivo
 MSG_TYPE_HEARTBEAT = 0x09      # Heartbeat para mantener conexión
 MSG_TYPE_BROADCAST = 0x0A      # Mensaje broadcast
 
 # Configuración de transferencia de archivos
-MAX_CHUNK_SIZE = 1400  # Tamaño máximo de fragmento (considerando MTU)
+MAX_CHUNK_SIZE = 800  # Tamaño máximo de fragmento (considerando MTU)
 FILE_TIMEOUT = 30      # Timeout para transferencia de archivos (segundos)
 MAX_RETRIES = 10        # Máximo número de reintentos
 

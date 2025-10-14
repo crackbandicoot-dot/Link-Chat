@@ -1,2 +1,0 @@
-# Comunicación con raw sockets
-
