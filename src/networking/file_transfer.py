@@ -39,7 +39,7 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
         socket_manager.attach(self)
         self.observers = set()
         # Directorio de recepción
-        self.download_dir = os.path.join(os.path.expanduser("~/Downloads"), "LinkChat")
+        self.download_dir = os.path.join(os.getcwd(), "Downloads")
         if not os.path.exists(self.download_dir):
             os.makedirs(self.download_dir)
         
@@ -213,7 +213,7 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
                 transfer.bytes_transferred += chunk_size
                 transfer.last_activity = get_timestamp()
                 
-                log_message("DEBUG", f"Fragmento {chunk_number}/{transfer.total_chunks} enviado")
+                # log_message("DEBUG", f"Fragmento {chunk_number}/{transfer.total_chunks} enviado")
             
             return success
             
@@ -356,7 +356,7 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
             transfer.bytes_transferred += chunk_size
             transfer.last_activity = get_timestamp()
             
-            log_message("DEBUG", f"Fragmento {chunk_number}/{transfer.total_chunks} recibido")
+            # log_message("DEBUG", f"Fragmento {chunk_number}/{transfer.total_chunks} recibido")
             
             # Enviar ACK
             self._send_file_chunk_ack(src_mac, transfer_id, chunk_number)
@@ -389,7 +389,7 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
             transfer.chunks_acked.add(chunk_number)
             transfer.last_activity = get_timestamp()
             
-            log_message("DEBUG", f"ACK recibido para fragmento {chunk_number}")
+            # log_message("DEBUG", f"ACK recibido para fragmento {chunk_number}")
             
             # Verificar si está completo
             if transfer.is_complete():
@@ -474,7 +474,7 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
                     if transfer.is_sender and transfer.status == "active":
                         self._process_sender_transfer(transfer)
                 
-                time.sleep(1)  # Revisar cada segundo
+                time.sleep(0.5)  # Revisar cada segundo
                 
             except Exception as e:
                 log_message("ERROR", f"Error en loop de gestión de transferencias: {e}")
@@ -495,9 +495,8 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
                 # Limitar número de fragmentos no confirmados simultáneos
                 unacked_chunks = transfer.chunks_sent - len(transfer.chunks_acked)
                 if unacked_chunks < 10:  # Máximo 10 fragmentos sin ACK
-                    if self._send_file_chunk(transfer, chunk_num):
-                        time.sleep(0.01)  # Pequeña pausa entre fragmentos
-                    break
+                    self._send_file_chunk(transfer, chunk_num)
+                    
 
     def update(self, frame: LinkChatFrame) -> None:
         self._handle_frame(frame)    
