@@ -496,8 +496,10 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
             if chunk_num not in transfer.chunks_acked:
                 # Limitar número de fragmentos no confirmados simultáneos
                 unacked_chunks = transfer.chunks_sent - len(transfer.chunks_acked)
-                if unacked_chunks < 50: 
+                if unacked_chunks < 10: 
                     self._send_file_chunk(transfer, chunk_num)
+                    time.sleep(0.01)
+                
                     
 
     def update(self, frame: LinkChatFrame) -> None:
