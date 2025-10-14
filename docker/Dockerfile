@@ -26,9 +26,6 @@ RUN chown -R linkchat:linkchat /app
 # Cambiar al usuario linkchat
 USER linkchat
 
-# Crear directorio para archivos recibidos
-RUN mkdir -p /app/received_files
-
 # Exponer información del contenedor
 LABEL maintainer="Link-Chat Team"
 LABEL description="Link-Chat - Data Link Layer Messaging Application"
