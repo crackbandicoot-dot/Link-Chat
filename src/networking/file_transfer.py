@@ -39,7 +39,7 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
         socket_manager.attach(self)
         self.observers = set()
         # Directorio de recepción
-        self.download_dir = os.path.join(DOWNLOADS_PATH, "LinkChat")
+        self.download_dir = os.path.join(os.path.expanduser("~/Downloads"), "LinkChat")
         if not os.path.exists(self.download_dir):
             os.makedirs(self.download_dir)
         
@@ -270,7 +270,9 @@ class FileTransferManager(Subject[FileTransfer], Observer[LinkChatFrame]):
             addr: Dirección del remitente
         """
         try:
-            # La trama ya está parseada como LinkChatFrame
+            # Ignorar tramas propias
+            if frame.src_mac == self.local_mac:
+                return
             # Procesar según el tipo de mensaje
             if frame.msg_type == MSG_TYPE_FILE_START:
                 self._handle_file_start(frame.src_mac, frame)

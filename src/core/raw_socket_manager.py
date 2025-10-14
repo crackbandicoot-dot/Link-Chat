@@ -71,7 +71,6 @@ class raw_socket_manager(Subject[LinkChatFrame]):
         """
         while self._is_receiving:
             try:
-                # Blocking call to receive data
                 raw_packet, _ = self.sock.recvfrom(BUFFER_SIZE)
                 if raw_packet and self._is_receiving:
                     received_frame = LinkChatFrame.from_bytes(raw_packet)
