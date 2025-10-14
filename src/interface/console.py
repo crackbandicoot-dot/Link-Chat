@@ -168,7 +168,7 @@ class ConsoleInterface(Observer[Union[Dict, Message, FileTransfer]]):
                 self._handle_device_update(data)
             elif isinstance(data, Message):
                 self._handle_message_update(data)
-            elif isinstance(data, FileTransfer):  # CORREGIR: FileTransfer en lugar de FileInfo
+            elif isinstance(data, FileTransfer):  
                 self._handle_file_update(data)
             else:
                 log_message("WARNING", f"Tipo de dato no reconocido en update: {type(data)}")
